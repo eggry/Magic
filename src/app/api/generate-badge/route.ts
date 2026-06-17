@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
       ravenclaw: 'eagle',
       hufflepuff: 'badger',
     };
-    const mascot = houseMascot[houseInfo.name] || 'lion';
+    const mascot = houseMascot[houseInfo.nameEn.toLowerCase()] || 'lion';
 
     const prompt = `A majestic magical heraldic badge/crest design for House ${houseInfo.nameEn}. Central shield in ${houseInfo.colors.primary} and ${houseInfo.colors.secondary}. The shield features a ${categorySymbol} at its center. A ${mascot} stands rampant on top of the shield as the crest. Ornate magical filigree borders in ${houseInfo.colors.secondary}, with ${houseInfo.colors.primary} gemstone accents. Floating runic inscriptions around the shield. Dark midnight blue background with subtle magical particle effects and candlelight glow. Harry Potter wizarding world aesthetic, medieval heraldry meets dark magic, metallic gold and silver embossing, shield reflecting candlelight, intricate detail, symmetrical composition, vector-like precision, 4K ultra-detailed, masterpiece quality, official Hogwarts house crest style`;
 

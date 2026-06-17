@@ -189,7 +189,7 @@ export default function ResultScreen() {
           body: JSON.stringify({ house: sortedHouse.nameEn, bestCategory }),
         });
         const data = await res.json();
-        if (data.url) setBadgeUrl(data.url);
+        if (data.badgeUrl) setBadgeUrl(data.badgeUrl);
       } catch {
         // Badge generation failed, will show fallback
       } finally {
@@ -522,17 +522,12 @@ export default function ResultScreen() {
 
                   {/* Wand display */}
                   <div className="flex flex-col items-center mb-4">
-                    <div
-                      className="w-32 h-32 flex items-center justify-center rounded-full mb-2"
-                      style={{
-                        background: `radial-gradient(circle, ${house.colors.secondary}20 0%, transparent 70%)`,
-                        border: `1px solid ${house.colors.secondary}30`,
-                      }}
-                    >
-                      <span className="text-6xl" style={{ filter: `drop-shadow(0 0 8px ${house.colors.secondary}60)` }}>
-                        🪄
-                      </span>
-                    </div>
+                    <img
+                      src="/wand.png"
+                      alt="Magic Wand"
+                      className="w-28 h-28 object-contain"
+                      style={{ filter: `drop-shadow(0 0 12px ${house.colors.secondary}80)` }}
+                    />
                     <p className="text-base font-bold" style={{ color: '#c9a84c', fontFamily: "'Cinzel', serif" }}>
                       {wand.name}
                     </p>
@@ -595,7 +590,8 @@ export default function ResultScreen() {
                     ) : (
                       <div className="text-center py-2">
                         <p className="text-lg font-bold mb-1" style={{ color: '#c9a84c' }}>
-                          🪄 魔杖已选择你！
+                          <img src="/wand.png" alt="" className="w-10 h-10 object-contain inline-block align-middle mr-2" style={{ filter: 'drop-shadow(0 0 6px #c9a84c80)' }} />
+                        <span className="align-middle">魔杖已选择你！</span>
                         </p>
                         <p className="text-sm" style={{ color: '#9ca3af' }}>
                           奥利凡德先生说：&ldquo;魔杖选择巫师，记住这一点。&rdquo;
