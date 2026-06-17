@@ -127,93 +127,84 @@ function ReportStep({
   const total = Math.round((accuracy + power + score + precision) / 4);
 
   return (
-    <div className="mx-auto flex h-full w-full max-w-[1400px] flex-col items-center justify-center gap-6">
+    <div className="mx-auto flex h-full w-full max-w-[1400px] flex-col items-center justify-center gap-4">
       {/* 标题 */}
       <div className="text-center">
-        <h1 className="text-6xl font-black tracking-wider text-glow-gold" style={{ fontFamily: "Cinzel, serif", color: "#c9a84c" }}>
+        <h1 className="text-5xl font-black tracking-wider text-glow-gold" style={{ fontFamily: "Cinzel, serif", color: "#c9a84c" }}>
           巫师评估报告
         </h1>
-        <p className="mt-2 text-2xl" style={{ color: "#9ca3af", fontFamily: "Noto Serif SC, serif" }}>
+        <p className="mt-1 text-xl" style={{ color: "#9ca3af", fontFamily: "Noto Serif SC, serif" }}>
           分院帽已完成对你的全面考察
         </p>
       </div>
 
-      {/* 牛皮纸主卡片 */}
-      <div className="relative w-full rounded-lg p-10 parchment" style={{ maxHeight: "calc(100vh - 280px)", overflow: "auto" }}>
-        {/* 火漆印 */}
-        <div className="absolute right-10 top-10 z-10">
-          <div className="wax-seal">
-            <span className="text-3xl">🎩</span>
-          </div>
-        </div>
-
-        <div className="relative z-10 grid grid-cols-2 gap-10">
+      {/* 暗黑主卡片 */}
+      <div className="relative w-full rounded-xl border p-6" style={{ borderColor: "rgba(201,168,76,0.25)", background: "rgba(15,15,30,0.7)", backdropFilter: "blur(10px)" }}>
+        <div className="relative z-10 grid grid-cols-2 gap-6">
           {/* 左列：分院结果 */}
-          <div className="flex flex-col gap-8">
+          <div className="flex flex-col gap-4">
             <div>
-              <p className="mb-2 text-xl font-bold" style={{ color: "#5c4033", fontFamily: "Noto Serif SC, serif" }}>分院结果</p>
-              <h2 className="text-7xl font-black" style={{ fontFamily: "Cinzel, serif", color: colors.primary, textShadow: `0 0 30px ${colors.glow}` }}>
+              <p className="mb-1 text-lg font-bold" style={{ color: "#c9a84c", fontFamily: "Noto Serif SC, serif" }}>分院结果</p>
+              <h2 className="text-5xl font-black" style={{ fontFamily: "Cinzel, serif", color: colors.primary, textShadow: `0 0 20px ${colors.glow}` }}>
                 {house.nameCn}
               </h2>
-              <p className="mt-2 text-2xl italic" style={{ color: "#5c4033" }}>{house.hatMessage}</p>
+              <p className="mt-1 text-lg italic" style={{ color: "#9ca3af" }}>{house.hatMessage}</p>
             </div>
 
-            <div className="rounded-lg border-2 p-6" style={{ borderColor: "rgba(92,64,51,0.3)", background: "rgba(255,255,255,0.3)" }}>
-              <p className="mb-3 text-xl font-bold" style={{ color: "#5c4033" }}>性格特质</p>
-              <div className="flex flex-wrap gap-3">
+            <div className="rounded-lg border p-4" style={{ borderColor: "rgba(201,168,76,0.2)", background: "rgba(15,15,30,0.5)" }}>
+              <p className="mb-2 text-lg font-bold" style={{ color: "#c9a84c" }}>性格特质</p>
+              <div className="flex flex-wrap gap-2">
                 {house.traits.map((t) => (
-                  <span key={t} className="rounded-full px-5 py-2 text-lg font-bold" style={{ background: colors.primary, color: "#fff" }}>
+                  <span key={t} className="rounded-full px-4 py-1 text-base font-bold" style={{ background: colors.primary, color: "#fff" }}>
                     {t}
                   </span>
                 ))}
               </div>
             </div>
 
-            <div className="rounded-lg border-2 p-6" style={{ borderColor: "rgba(92,64,51,0.3)", background: "rgba(255,255,255,0.3)" }}>
-              <p className="mb-3 text-xl font-bold" style={{ color: "#5c4033" }}>学院信息</p>
-              <div className="flex flex-wrap gap-4 text-xl" style={{ color: "#5c4033" }}>
-                <span className="flex items-center gap-2"><Sparkles className="h-5 w-5" /> {house.motto}</span>
-                <span className="flex items-center gap-2"><Star className="h-5 w-5" /> {house.mascot}</span>
-                <span className="flex items-center gap-2"><ScrollText className="h-5 w-5" /> {house.nameEn}</span>
+            <div className="rounded-lg border p-4" style={{ borderColor: "rgba(201,168,76,0.2)", background: "rgba(15,15,30,0.5)" }}>
+              <p className="mb-2 text-lg font-bold" style={{ color: "#c9a84c" }}>学院信息</p>
+              <div className="flex flex-wrap gap-3 text-base" style={{ color: "#e8dcc8" }}>
+                <span className="flex items-center gap-2"><Sparkles className="h-4 w-4" style={{ color: colors.secondary }} /> {house.motto}</span>
+                <span className="flex items-center gap-2"><Star className="h-4 w-4" style={{ color: colors.secondary }} /> {house.mascot}</span>
+                <span className="flex items-center gap-2"><ScrollText className="h-4 w-4" style={{ color: colors.secondary }} /> {house.nameEn}</span>
               </div>
             </div>
           </div>
 
           {/* 右列：考核成绩 */}
-          <div className="flex flex-col gap-6">
-            <div>
-              <p className="mb-4 text-xl font-bold" style={{ color: "#5c4033" }}>考核成绩</p>
+          <div className="flex flex-col gap-4">
+            <p className="text-lg font-bold" style={{ color: "#c9a84c" }}>考核成绩</p>
 
-              <div className="mb-4 rounded-lg border-2 p-5" style={{ borderColor: "rgba(92,64,51,0.3)", background: "rgba(255,255,255,0.3)" }}>
-                <div className="mb-3 flex items-center gap-3">
-                  <Wand2 className="h-6 w-6" style={{ color: colors.primary }} />
-                  <span className="text-2xl font-bold" style={{ color: "#5c4033" }}>念咒考核</span>
-                </div>
-                <div className="space-y-3">
-                  <ScoreBar label="准确度" value={accuracy} max={100} color={colors.primary} icon={<Star className="h-4 w-4" />} />
-                  <ScoreBar label="气势" value={power} max={100} color={colors.secondary} icon={<Sparkles className="h-4 w-4" />} />
-                </div>
+            <div className="rounded-lg border p-4" style={{ borderColor: "rgba(201,168,76,0.2)", background: "rgba(15,15,30,0.5)" }}>
+              <div className="mb-2 flex items-center gap-2">
+                <Wand2 className="h-5 w-5" style={{ color: colors.primary }} />
+                <span className="text-xl font-bold" style={{ color: "#e8dcc8" }}>念咒考核</span>
               </div>
+              <div className="space-y-2">
+                <ScoreBar label="准确度" value={accuracy} max={100} color={colors.primary} icon={<Star className="h-4 w-4" />} />
+                <ScoreBar label="气势" value={power} max={100} color={colors.secondary} icon={<Sparkles className="h-4 w-4" />} />
+              </div>
+            </div>
 
-              <div className="rounded-lg border-2 p-5" style={{ borderColor: "rgba(92,64,51,0.3)", background: "rgba(255,255,255,0.3)" }}>
-                <div className="mb-3 flex items-center gap-3">
-                  <Shield className="h-6 w-6" style={{ color: colors.primary }} />
-                  <span className="text-2xl font-bold" style={{ color: "#5c4033" }}>画符考核</span>
-                </div>
-                <div className="space-y-3">
-                  <ScoreBar label="完成度" value={score} max={100} color={colors.primary} icon={<Star className="h-4 w-4" />} />
-                  <ScoreBar label="精准度" value={precision} max={100} color={colors.secondary} icon={<Sparkles className="h-4 w-4" />} />
-                </div>
+            <div className="rounded-lg border p-4" style={{ borderColor: "rgba(201,168,76,0.2)", background: "rgba(15,15,30,0.5)" }}>
+              <div className="mb-2 flex items-center gap-2">
+                <Shield className="h-5 w-5" style={{ color: colors.primary }} />
+                <span className="text-xl font-bold" style={{ color: "#e8dcc8" }}>画符考核</span>
+              </div>
+              <div className="space-y-2">
+                <ScoreBar label="完成度" value={score} max={100} color={colors.primary} icon={<Star className="h-4 w-4" />} />
+                <ScoreBar label="精准度" value={precision} max={100} color={colors.secondary} icon={<Sparkles className="h-4 w-4" />} />
               </div>
             </div>
 
             {/* 总分 */}
-            <div className="mt-2 rounded-xl p-6 text-center" style={{ background: `linear-gradient(135deg, ${colors.primary}22, ${colors.secondary}22)`, border: `2px solid ${colors.primary}` }}>
-              <p className="text-xl font-bold" style={{ color: "#5c4033" }}>综合评分</p>
-              <p className="mt-1 text-6xl font-black" style={{ color: colors.primary, textShadow: `0 0 20px ${colors.glow}` }}>
+            <div className="mt-auto rounded-xl p-4 text-center" style={{ background: `linear-gradient(135deg, ${colors.primary}22, ${colors.secondary}22)`, border: `2px solid ${colors.primary}` }}>
+              <p className="text-lg font-bold" style={{ color: "#c9a84c" }}>综合评分</p>
+              <p className="mt-1 text-5xl font-black" style={{ color: colors.primary, textShadow: `0 0 15px ${colors.glow}` }}>
                 {total}
               </p>
-              <p className="text-lg" style={{ color: "#5c4033" }}>分</p>
+              <p className="text-base" style={{ color: "#9ca3af" }}>分</p>
             </div>
           </div>
         </div>
@@ -265,7 +256,7 @@ function BadgeStep({
   }, [bestSpell]);
 
   return (
-    <div className="mx-auto flex h-full w-full max-w-[1200px] flex-col items-center justify-center gap-8">
+    <div className="mx-auto flex h-full w-full max-w-[1200px] flex-col items-center justify-center gap-6">
       <div className="text-center">
         <h1 className="text-6xl font-black tracking-wider text-glow-gold" style={{ fontFamily: "Cinzel, serif", color: "#c9a84c" }}>
           专属徽章
@@ -275,28 +266,24 @@ function BadgeStep({
         </p>
       </div>
 
-      <div className="gilded-border relative flex w-full items-center justify-center gap-16 rounded-2xl p-16 metallic" style={{ boxShadow: `0 0 60px ${colors.glow}` }}>
+      <div className="gilded-border relative flex w-full items-center justify-center gap-16 rounded-2xl p-12" style={{ background: "rgba(15,15,30,0.6)", border: "1px solid rgba(201,168,76,0.3)", boxShadow: `0 0 60px ${colors.glow}` }}>
         {/* 徽章展示 */}
         <div className="flex flex-col items-center gap-6">
           <div
             className="relative flex h-[280px] w-[280px] items-center justify-center rounded-2xl"
             style={{
-              background: `linear-gradient(145deg, ${colors.primary}33, ${colors.secondary}22)`,
               border: `3px solid ${colors.primary}`,
-              boxShadow: `0 0 40px ${colors.glow}, inset 0 0 30px ${colors.glow}`,
+              boxShadow: `0 0 40px ${colors.glow}`,
             }}
           >
             {badgeUrl ? (
-              <img src={badgeUrl} alt={bestSpell?.spell.nameCn ?? "徽章"} className="h-[220px] w-[220px] object-contain drop-shadow-2xl" />
+              <img src={badgeUrl} alt={bestSpell?.spell.nameCn ?? "徽章"} className="h-[240px] w-[240px] object-contain drop-shadow-2xl" />
             ) : (
               <span className="text-8xl">🎖️</span>
             )}
           </div>
           <p className="text-3xl font-black" style={{ fontFamily: "Cinzel, serif", color: "#c9a84c" }}>
             {bestSpell?.spell.nameCn ?? "未知咒语"}
-          </p>
-          <p className="text-xl italic" style={{ color: "#9ca3af" }}>
-            {bestSpell?.spell.incantationCn ?? ""}
           </p>
         </div>
 
@@ -378,28 +365,27 @@ function WandStep({
   }, [bestCategory, house.name, level1Result]);
 
   return (
-    <div className="mx-auto flex h-full w-full max-w-[1200px] flex-col items-center justify-center gap-8">
+    <div className="mx-auto flex h-full w-full max-w-[1200px] flex-col items-center justify-center gap-5">
       <div className="text-center">
         <h1 className="text-6xl font-black tracking-wider text-glow-gold" style={{ fontFamily: "Cinzel, serif", color: "#c9a84c" }}>
           你的魔杖
         </h1>
-        <p className="mt-2 text-2xl" style={{ color: "#9ca3af", fontFamily: "Noto Serif SC, serif" }}>
+        <p className="mt-1 text-2xl" style={{ color: "#9ca3af", fontFamily: "Noto Serif SC, serif" }}>
           魔杖选择巫师
         </p>
       </div>
 
-      <div className="gilded-border relative flex w-full items-center justify-center gap-16 rounded-2xl p-16 metallic" style={{ boxShadow: `0 0 60px ${colors.glow}` }}>
+      <div className="gilded-border relative flex w-full items-center justify-center gap-12 rounded-2xl p-10" style={{ background: "rgba(15,15,30,0.6)", border: "1px solid rgba(201,168,76,0.3)", boxShadow: `0 0 60px ${colors.glow}` }}>
         {/* 魔杖展示 */}
-        <div className="flex flex-col items-center gap-6">
+        <div className="flex flex-col items-center gap-4">
           <div
-            className="relative flex h-[320px] w-[200px] items-center justify-center rounded-2xl"
+            className="relative flex h-[280px] w-[160px] items-center justify-center rounded-2xl"
             style={{
-              background: `linear-gradient(145deg, ${colors.primary}33, ${colors.secondary}22)`,
               border: `3px solid ${colors.primary}`,
-              boxShadow: `0 0 40px ${colors.glow}, inset 0 0 30px ${colors.glow}`,
+              boxShadow: `0 0 40px ${colors.glow}`,
             }}
           >
-            <img src="/wand.png" alt="魔杖" className="h-[260px] w-auto object-contain drop-shadow-2xl" />
+            <img src="/wand.png" alt="魔杖" className="h-[220px] w-auto object-contain drop-shadow-2xl" />
           </div>
           <p className="text-3xl font-black" style={{ fontFamily: "Cinzel, serif", color: "#c9a84c" }}>
             {wand?.name ?? "神秘魔杖"}
@@ -407,7 +393,7 @@ function WandStep({
           <p className="text-xl" style={{ color: "#9ca3af" }}>
             {wand?.wood ?? "神秘木材"} · {wand?.core ?? "未知杖芯"}
           </p>
-          <p className="max-w-[400px] text-center text-lg leading-relaxed" style={{ color: "#9ca3af" }}>
+          <p className="max-w-[380px] text-center text-base leading-relaxed" style={{ color: "#9ca3af" }}>
             {wand?.description ?? "这根魔杖正在等待它的主人..."}
           </p>
         </div>
