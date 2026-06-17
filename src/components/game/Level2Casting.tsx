@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useGame } from './GameProvider';
-import { getRandomPattern } from '@/lib/patterns';
 import type { Level2Result } from './GameProvider';
+import { getRandomPattern } from '@/lib/patterns';
+import type { MagicPattern } from '@/lib/patterns';
 
 type Phase = 'intro' | 'countdown' | 'drawing' | 'analyzing' | 'done';
 
@@ -19,7 +20,6 @@ export default function Level2Casting() {
   const [phase, setPhase] = useState<Phase>('intro');
   const [countdown, setCountdown] = useState(3);
   const [timeLeft, setTimeLeft] = useState(15);
-  const [cameraReady, setCameraReady] = useState(false);
   const [cameraError, setCameraError] = useState(false);
   const [drawingPoints, setDrawingPoints] = useState<Point[]>([]);
   const [isDrawing, setIsDrawing] = useState(false);
@@ -34,29 +34,24 @@ export default function Level2Casting() {
   const pointsRef = useRef<Point[]>([]);
   const lastPointRef = useRef<Point | null>(null);
   const phaseRef = useRef<Phase>('intro');
+  const cameraReadyRef = useRef(false);
 
   // Keep phaseRef in sync
   useEffect(() => {
     phaseRef.current = phase;
   }, [phase]);
 
-  // Target pattern: five-pointed star
+  // Target pattern
+  const patternRef = useRef<MagicPattern | null>(null);
   const patternPoints = useRef<{ x: number; y: number }[]>([]);
   const patternLines = useRef<{ from: number; to: number }[]>([]);
 
   // Initialize pattern
   useEffect(() => {
-    const cx = 0.5, cy = 0.5, r = 0.3;
-    const pts: { x: number; y: number }[] = [];
-    for (let i = 0; i < 5; i++) {
-      const angle = -Math.PI / 2 + (i * 2 * Math.PI) / 5;
-      pts.push({ x: cx + r * Math.cos(angle), y: cy + r * Math.sin(angle) });
-    }
-    patternPoints.current = pts;
-    patternLines.current = [
-      { from: 0, to: 2 }, { from: 2, to: 4 }, { from: 4, to: 1 },
-      { from: 1, to: 3 }, { from: 3, to: 0 },
-    ];
+    const p = getRandomPattern();
+    patternRef.current = p;
+    patternPoints.current = p.points;
+    patternLines.current = p.segments.map(([from, to]) => ({ from, to }));
   }, []);
 
   // Draw target pattern on a canvas context
@@ -147,7 +142,6 @@ export default function Level2Casting() {
 
   // Draw dark background with grid when no camera
   const drawDarkBackground = useCallback((ctx: CanvasRenderingContext2D, w: number, h: number) => {
-    // Dark gradient background
     const grad = ctx.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, Math.max(w, h) * 0.7);
     grad.addColorStop(0, '#141428');
     grad.addColorStop(1, '#0a0e1a');
@@ -198,14 +192,15 @@ export default function Level2Casting() {
             };
           }
         });
-        setCameraReady(true);
+        cameraReadyRef.current = true;
       }
     } catch {
       setCameraError(true);
+      cameraReadyRef.current = false;
     }
   }, []);
 
-  // Cleanup
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
       streamRef.current?.getTracks().forEach(track => track.stop());
@@ -213,11 +208,120 @@ export default function Level2Casting() {
     };
   }, []);
 
+  // Detect bright point from camera frame (wand tip)
+  const detectBrightPoint = useCallback((ctx: CanvasRenderingContext2D, w: number, h: number) => {
+    if (phaseRef.current !== 'drawing') return;
+
+    try {
+      const sampleW = 160, sampleH = 120;
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = sampleW;
+      tempCanvas.height = sampleH;
+      const tempCtx = tempCanvas.getContext('2d');
+      if (!tempCtx) return;
+
+      tempCtx.drawImage(ctx.canvas, 0, 0, sampleW, sampleH);
+      const imageData = tempCtx.getImageData(0, 0, sampleW, sampleH);
+      const data = imageData.data;
+
+      let maxBrightness = 0;
+      let brightX = 0, brightY = 0;
+      const threshold = 200;
+
+      for (let y = 0; y < sampleH; y += 2) {
+        for (let x = 0; x < sampleW; x += 2) {
+          const idx = (y * sampleW + x) * 4;
+          const r = data[idx], g = data[idx + 1], b = data[idx + 2];
+          if (r > threshold && g > threshold * 0.85 && b > threshold * 0.7) {
+            const brightness = r + g + b;
+            if (brightness > maxBrightness) {
+              maxBrightness = brightness;
+              brightX = x / sampleW;
+              brightY = y / sampleH;
+            }
+          }
+        }
+      }
+
+      if (maxBrightness > 0) {
+        const now = Date.now();
+        const newPoint: Point = { x: 1 - brightX, y: brightY, t: now };
+
+        if (!lastPointRef.current ||
+          Math.abs(newPoint.x - lastPointRef.current.x) > 0.005 ||
+          Math.abs(newPoint.y - lastPointRef.current.y) > 0.005) {
+          pointsRef.current.push(newPoint);
+          lastPointRef.current = newPoint;
+          setDrawingPoints([...pointsRef.current]);
+        }
+      }
+    } catch {
+      // Canvas readback may fail due to CORS
+    }
+  }, []);
+
+  // ---- Render loop (started when entering drawing phase) ----
+  const startRenderLoop = useCallback(() => {
+    const render = () => {
+      if (phaseRef.current !== 'drawing') return;
+
+      const canvas = canvasRef.current;
+      const overlay = overlayRef.current;
+      if (!canvas || !overlay) {
+        animFrameRef.current = requestAnimationFrame(render);
+        return;
+      }
+
+      const w = canvas.width;
+      const h = canvas.height;
+      const ctx = canvas.getContext('2d');
+      const octx = overlay.getContext('2d');
+      if (!ctx || !octx) {
+        animFrameRef.current = requestAnimationFrame(render);
+        return;
+      }
+
+      // Main canvas: video or dark background
+      if (cameraReadyRef.current && videoRef.current && videoRef.current.videoWidth > 0) {
+        const video = videoRef.current;
+        ctx.save();
+        ctx.translate(w, 0);
+        ctx.scale(-1, 1);
+        ctx.drawImage(video, 0, 0, w, h);
+        ctx.restore();
+        // Slight darken for pattern visibility
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+        ctx.fillRect(0, 0, w, h);
+        // Detect bright point for wand tracking
+        detectBrightPoint(ctx, w, h);
+      } else {
+        drawDarkBackground(ctx, w, h);
+      }
+
+      // Overlay: pattern + trail
+      octx.clearRect(0, 0, w, h);
+      drawPattern(octx, w, h, 0.6);
+      drawTrail(octx, w, h, pointsRef.current);
+
+      animFrameRef.current = requestAnimationFrame(render);
+    };
+
+    animFrameRef.current = requestAnimationFrame(render);
+  }, [detectBrightPoint, drawDarkBackground, drawPattern, drawTrail]);
+
   // ---- Countdown effect ----
   useEffect(() => {
     if (phase !== 'countdown') return;
     if (countdown <= 0) {
-      startDrawing();
+      setPhase('drawing');
+      setTimeLeft(15);
+      pointsRef.current = [];
+      lastPointRef.current = null;
+      setDrawingPoints([]);
+      // Start render loop after state update
+      requestAnimationFrame(() => {
+        startRenderLoop();
+      });
       return;
     }
     const timer = setTimeout(() => setCountdown(prev => prev - 1), 1000);
@@ -245,124 +349,13 @@ export default function Level2Casting() {
   // ---- Done phase: submit result ----
   useEffect(() => {
     if (phase !== 'done') return;
-    const total = Math.round(patternScore * 0.6 + precisionScore * 0.4);
     const result: Level2Result = {
-      pattern: getRandomPattern(),
+      pattern: patternRef.current!,
       score: patternScore,
       precision: precisionScore,
     };
     completeLevel2(result);
   }, [phase, patternScore, precisionScore]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ---- Start drawing phase ----
-  const startDrawing = useCallback(() => {
-    setPhase('drawing');
-    setTimeLeft(15);
-    pointsRef.current = [];
-    lastPointRef.current = null;
-    setDrawingPoints([]);
-
-    // Start render loop
-    const render = () => {
-      if (phaseRef.current !== 'drawing') return;
-
-      const canvas = canvasRef.current;
-      const overlay = overlayRef.current;
-      if (!canvas || !overlay) {
-        animFrameRef.current = requestAnimationFrame(render);
-        return;
-      }
-
-      const w = canvas.width;
-      const h = canvas.height;
-      const ctx = canvas.getContext('2d');
-      const octx = overlay.getContext('2d');
-      if (!ctx || !octx) {
-        animFrameRef.current = requestAnimationFrame(render);
-        return;
-      }
-
-      // Main canvas: video or dark background
-      if (cameraReady && videoRef.current && videoRef.current.videoWidth > 0) {
-        const video = videoRef.current;
-        ctx.save();
-        ctx.translate(w, 0);
-        ctx.scale(-1, 1);
-        ctx.drawImage(video, 0, 0, w, h);
-        ctx.restore();
-        // Slight darken
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
-        ctx.fillRect(0, 0, w, h);
-        // Detect bright point for wand tracking
-        detectBrightPoint(ctx, w, h);
-      } else {
-        drawDarkBackground(ctx, w, h);
-      }
-
-      // Overlay: pattern + trail
-      octx.clearRect(0, 0, w, h);
-      drawPattern(octx, w, h, 0.6);
-      drawTrail(octx, w, h, pointsRef.current);
-
-      animFrameRef.current = requestAnimationFrame(render);
-    };
-
-    animFrameRef.current = requestAnimationFrame(render);
-  }, [cameraReady, drawDarkBackground, drawPattern, drawTrail]);
-
-  // Detect bright point from camera frame (wand tip)
-  const detectBrightPoint = useCallback((ctx: CanvasRenderingContext2D, w: number, h: number) => {
-    if (phaseRef.current !== 'drawing') return;
-
-    try {
-      const sampleW = 160, sampleH = 120;
-      const tempCanvas = document.createElement('canvas');
-      tempCanvas.width = sampleW;
-      tempCanvas.height = sampleH;
-      const tempCtx = tempCanvas.getContext('2d');
-      if (!tempCtx) return;
-
-      tempCtx.drawImage(ctx.canvas, 0, 0, sampleW, sampleH);
-      const imageData = tempCtx.getImageData(0, 0, sampleW, sampleH);
-      const data = imageData.data;
-
-      let maxBrightness = 0;
-      let brightX = 0, brightY = 0;
-      const threshold = 200;
-
-      for (let y = 0; y < sampleH; y += 2) {
-        for (let x = 0; x < sampleW; x += 2) {
-          const idx = (y * sampleW + x) * 4;
-          const r = data[idx], g = data[idx + 1], b = data[idx + 2];
-          // Detect very bright, warm-white light (phone flashlight)
-          if (r > threshold && g > threshold * 0.85 && b > threshold * 0.7) {
-            const brightness = r + g + b;
-            if (brightness > maxBrightness) {
-              maxBrightness = brightness;
-              brightX = x / sampleW;
-              brightY = y / sampleH;
-            }
-          }
-        }
-      }
-
-      if (maxBrightness > 0) {
-        const now = Date.now();
-        const newPoint: Point = { x: 1 - brightX, y: brightY, t: now };
-
-        // Only add if moved enough from last point
-        if (!lastPointRef.current ||
-          Math.abs(newPoint.x - lastPointRef.current.x) > 0.005 ||
-          Math.abs(newPoint.y - lastPointRef.current.y) > 0.005) {
-          pointsRef.current.push(newPoint);
-          lastPointRef.current = newPoint;
-          setDrawingPoints([...pointsRef.current]);
-        }
-      }
-    } catch {
-      // Canvas readback may fail due to CORS
-    }
-  }, []);
 
   // ---- Mouse / touch handlers for fallback drawing ----
   const getCanvasPoint = useCallback((clientX: number, clientY: number): Point | null => {
@@ -413,7 +406,6 @@ export default function Level2Casting() {
       return;
     }
 
-    // Pattern matching: check how close points are to the target lines
     const lines = patternLines.current;
     const vertices = patternPoints.current;
     let totalMinDist = 0;
@@ -454,200 +446,200 @@ export default function Level2Casting() {
     setPrecisionScore(Math.min(100, Math.max(0, prec)));
   }, []);
 
-  // ---- Render intro screen ----
-  if (phase === 'intro') {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen px-6 text-center">
-        <div className="text-6xl mb-6" style={{ animation: 'hatWobble 2s ease-in-out infinite' }}>🎩</div>
-        <h2
-          className="text-3xl font-bold mb-4"
-          style={{ color: '#c9a84c', fontFamily: "'Cinzel', serif", textShadow: '0 0 10px rgba(201, 168, 76, 0.4)' }}
-        >
-          施咒考验
-        </h2>
-        <p className="mb-3 text-base" style={{ color: '#e8dcc8' }}>
-          分院帽要考验你的施咒能力
-        </p>
-        <p className="mb-2 text-sm" style={{ color: '#9ca3af' }}>
-          屏幕上会出现一个魔法符文，用你的魔杖沿着虚线描绘
-        </p>
-        <p className="mb-6 text-sm" style={{ color: '#9ca3af' }}>
-          💡 打开手机手电筒对着摄像头，或用鼠标/手指绘制
-        </p>
-        <button
-          onClick={async () => {
-            await startCamera();
-            setPhase('countdown');
-            setCountdown(3);
-          }}
-          className="px-8 py-3 rounded-lg text-lg font-bold tracking-wider transition-all duration-300 cursor-pointer"
-          style={{
-            fontFamily: "'Cinzel', serif",
-            color: '#0a0e1a',
-            background: 'linear-gradient(135deg, #c9a84c, #d4a017, #c9a84c)',
-            boxShadow: '0 0 20px rgba(201, 168, 76, 0.4)',
-          }}
-        >
-          开始施咒
-        </button>
-      </div>
-    );
-  }
+  const showCanvas = phase === 'drawing' || phase === 'done';
 
-  // ---- Countdown screen ----
-  if (phase === 'countdown') {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen">
-        <div
-          className="text-8xl font-bold"
-          style={{ color: '#c9a84c', fontFamily: "'Cinzel', serif", textShadow: '0 0 30px rgba(201, 168, 76, 0.6)' }}
-        >
-          {countdown}
-        </div>
-        <p className="mt-4 text-lg" style={{ color: '#9ca3af' }}>准备好你的魔杖...</p>
-      </div>
-    );
-  }
-
-  // ---- Analyzing screen ----
-  if (phase === 'analyzing') {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen">
-        <div className="text-6xl mb-4" style={{ animation: 'hatWobble 1s ease-in-out infinite' }}>🎩</div>
-        <p className="text-xl" style={{ color: '#c9a84c', textShadow: '0 0 10px rgba(201, 168, 76, 0.4)' }}>
-          分院帽正在解读你的符文...
-        </p>
-      </div>
-    );
-  }
-
-  // ---- Drawing / Done phase ----
   return (
     <div className="flex flex-col items-center justify-center min-h-screen px-4 py-4">
-      {/* Header */}
-      <div className="flex items-center justify-between w-full max-w-lg mb-3">
-        <h2
-          className="text-xl font-bold"
-          style={{ color: '#c9a84c', fontFamily: "'Cinzel', serif" }}
-        >
-          描绘符文
-        </h2>
-        {phase === 'drawing' && (
-          <div className="flex items-center gap-2">
-            <span
-              className="text-2xl font-bold"
+      {/* ===== ALWAYS render video (WebRTC rule: no conditional render) ===== */}
+      <video
+        ref={videoRef}
+        autoPlay
+        playsInline
+        muted
+        className="hidden"
+      />
+
+      {/* ===== Intro screen ===== */}
+      {phase === 'intro' && (
+        <div className="flex flex-col items-center justify-center min-h-screen px-6 text-center">
+          <div className="text-6xl mb-6" style={{ animation: 'hatWobble 2s ease-in-out infinite' }}>🎩</div>
+          <h2
+            className="text-3xl font-bold mb-4"
+            style={{ color: '#c9a84c', fontFamily: "'Cinzel', serif", textShadow: '0 0 10px rgba(201, 168, 76, 0.4)' }}
+          >
+            施咒考验
+          </h2>
+          <p className="mb-3 text-base" style={{ color: '#e8dcc8' }}>
+            分院帽要考验你的施咒能力
+          </p>
+          <p className="mb-2 text-sm" style={{ color: '#9ca3af' }}>
+            屏幕上会出现一个魔法符文，用你的魔杖沿着虚线描绘
+          </p>
+          <p className="mb-6 text-sm" style={{ color: '#9ca3af' }}>
+            💡 打开手机手电筒对着摄像头，或用鼠标/手指绘制
+          </p>
+          <button
+            onClick={async () => {
+              await startCamera();
+              setPhase('countdown');
+              setCountdown(3);
+            }}
+            className="px-8 py-3 rounded-lg text-lg font-bold tracking-wider transition-all duration-300 cursor-pointer"
+            style={{
+              fontFamily: "'Cinzel', serif",
+              color: '#0a0e1a',
+              background: 'linear-gradient(135deg, #c9a84c, #d4a017, #c9a84c)',
+              boxShadow: '0 0 20px rgba(201, 168, 76, 0.4)',
+            }}
+          >
+            开始施咒
+          </button>
+        </div>
+      )}
+
+      {/* ===== Countdown screen ===== */}
+      {phase === 'countdown' && (
+        <div className="flex flex-col items-center justify-center min-h-screen">
+          <div
+            className="text-8xl font-bold"
+            style={{ color: '#c9a84c', fontFamily: "'Cinzel', serif", textShadow: '0 0 30px rgba(201, 168, 76, 0.6)' }}
+          >
+            {countdown}
+          </div>
+          <p className="mt-4 text-lg" style={{ color: '#9ca3af' }}>准备好你的魔杖...</p>
+        </div>
+      )}
+
+      {/* ===== Analyzing screen ===== */}
+      {phase === 'analyzing' && (
+        <div className="flex flex-col items-center justify-center min-h-screen">
+          <div className="text-6xl mb-4" style={{ animation: 'hatWobble 1s ease-in-out infinite' }}>🎩</div>
+          <p className="text-xl" style={{ color: '#c9a84c', textShadow: '0 0 10px rgba(201, 168, 76, 0.4)' }}>
+            分院帽正在解读你的符文...
+          </p>
+        </div>
+      )}
+
+      {/* ===== Canvas (drawing / done) ===== */}
+      {showCanvas && (
+        <>
+          {/* Header */}
+          <div className="flex items-center justify-between w-full max-w-lg mb-3">
+            <h2
+              className="text-xl font-bold"
+              style={{ color: '#c9a84c', fontFamily: "'Cinzel', serif" }}
+            >
+              描绘符文
+            </h2>
+            {phase === 'drawing' && (
+              <div className="flex items-center gap-2">
+                <span
+                  className="text-2xl font-bold"
+                  style={{
+                    color: timeLeft <= 5 ? '#ef4444' : '#c9a84c',
+                    fontFamily: "'Cinzel', serif",
+                  }}
+                >
+                  {timeLeft}s
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Canvas container */}
+          <div
+            className="relative w-full max-w-lg rounded-xl overflow-hidden"
+            style={{
+              aspectRatio: '4/3',
+              border: '1px solid rgba(201, 168, 76, 0.3)',
+              background: '#0a0e1a',
+            }}
+          >
+            {/* Main canvas (video / dark bg) */}
+            <canvas
+              ref={canvasRef}
+              width={640}
+              height={480}
+              className="absolute inset-0 w-full h-full"
+            />
+
+            {/* Overlay canvas (pattern + trail) */}
+            <canvas
+              ref={overlayRef}
+              width={640}
+              height={480}
+              className="absolute inset-0 w-full h-full"
+              style={{ cursor: 'crosshair', touchAction: 'none' }}
+              onMouseDown={(e) => handlePointerDown(e.clientX, e.clientY)}
+              onMouseMove={(e) => handlePointerMove(e.clientX, e.clientY)}
+              onMouseUp={handlePointerUp}
+              onMouseLeave={handlePointerUp}
+              onTouchStart={(e) => {
+                e.preventDefault();
+                const touch = e.touches[0];
+                handlePointerDown(touch.clientX, touch.clientY);
+              }}
+              onTouchMove={(e) => {
+                e.preventDefault();
+                const touch = e.touches[0];
+                handlePointerMove(touch.clientX, touch.clientY);
+              }}
+              onTouchEnd={(e) => {
+                e.preventDefault();
+                handlePointerUp();
+              }}
+            />
+
+            {/* Drawing hint overlay */}
+            {phase === 'drawing' && (
+              <div className="absolute top-3 left-0 right-0 text-center pointer-events-none">
+                <span
+                  className="px-3 py-1 rounded-full text-xs"
+                  style={{ backgroundColor: 'rgba(10, 14, 26, 0.7)', color: '#c9a84c' }}
+                >
+                  {cameraError ? '🖱️ 用鼠标或手指沿着虚线描绘符文' : '🪄 用魔杖光源描绘 / 或用鼠标绘制'}
+                </span>
+              </div>
+            )}
+
+            {/* Score display when done */}
+            {phase === 'done' && (
+              <div
+                className="absolute inset-0 flex flex-col items-center justify-center"
+                style={{ backgroundColor: 'rgba(10, 14, 26, 0.85)' }}
+              >
+                <p className="text-4xl font-bold mb-2" style={{ color: '#c9a84c', fontFamily: "'Cinzel', serif" }}>
+                  符文解读完成
+                </p>
+                <div className="flex gap-6 text-lg">
+                  <div>
+                    <p style={{ color: '#9ca3af' }}>匹配度</p>
+                    <p className="text-2xl font-bold" style={{ color: '#c9a84c' }}>{patternScore}</p>
+                  </div>
+                  <div>
+                    <p style={{ color: '#9ca3af' }}>精度</p>
+                    <p className="text-2xl font-bold" style={{ color: '#c9a84c' }}>{precisionScore}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Finish button */}
+          {phase === 'drawing' && (
+            <button
+              onClick={finishDrawing}
+              className="mt-4 px-6 py-2 rounded-lg text-sm font-bold tracking-wider transition-all duration-300 cursor-pointer"
               style={{
-                color: timeLeft <= 5 ? '#ef4444' : '#c9a84c',
                 fontFamily: "'Cinzel', serif",
+                color: '#0a0e1a',
+                background: 'linear-gradient(135deg, #c9a84c, #d4a017)',
               }}
             >
-              {timeLeft}s
-            </span>
-          </div>
-        )}
-      </div>
-
-      {/* Canvas container */}
-      <div
-        className="relative w-full max-w-lg rounded-xl overflow-hidden"
-        style={{
-          aspectRatio: '4/3',
-          border: '1px solid rgba(201, 168, 76, 0.3)',
-          background: '#0a0e1a',
-        }}
-      >
-        {/* Hidden video - always rendered */}
-        <video
-          ref={videoRef}
-          autoPlay
-          playsInline
-          muted
-          className="hidden"
-        />
-
-        {/* Main canvas (video / dark bg) */}
-        <canvas
-          ref={canvasRef}
-          width={640}
-          height={480}
-          className="absolute inset-0 w-full h-full"
-        />
-
-        {/* Overlay canvas (pattern + trail) */}
-        <canvas
-          ref={overlayRef}
-          width={640}
-          height={480}
-          className="absolute inset-0 w-full h-full"
-          style={{ cursor: 'crosshair', touchAction: 'none' }}
-          onMouseDown={(e) => handlePointerDown(e.clientX, e.clientY)}
-          onMouseMove={(e) => handlePointerMove(e.clientX, e.clientY)}
-          onMouseUp={handlePointerUp}
-          onMouseLeave={handlePointerUp}
-          onTouchStart={(e) => {
-            e.preventDefault();
-            const touch = e.touches[0];
-            handlePointerDown(touch.clientX, touch.clientY);
-          }}
-          onTouchMove={(e) => {
-            e.preventDefault();
-            const touch = e.touches[0];
-            handlePointerMove(touch.clientX, touch.clientY);
-          }}
-          onTouchEnd={(e) => {
-            e.preventDefault();
-            handlePointerUp();
-          }}
-        />
-
-        {/* Drawing hint overlay */}
-        {phase === 'drawing' && (
-          <div className="absolute top-3 left-0 right-0 text-center pointer-events-none">
-            <span
-              className="px-3 py-1 rounded-full text-xs"
-              style={{ backgroundColor: 'rgba(10, 14, 26, 0.7)', color: '#c9a84c' }}
-            >
-              {cameraError ? '🖱️ 用鼠标或手指沿着虚线描绘符文' : '🪄 用魔杖光源描绘 / 或用鼠标绘制'}
-            </span>
-          </div>
-        )}
-
-        {/* Score display when done */}
-        {phase === 'done' && (
-          <div
-            className="absolute inset-0 flex flex-col items-center justify-center"
-            style={{ backgroundColor: 'rgba(10, 14, 26, 0.85)' }}
-          >
-            <p className="text-4xl font-bold mb-2" style={{ color: '#c9a84c', fontFamily: "'Cinzel', serif" }}>
-              符文解读完成
-            </p>
-            <div className="flex gap-6 text-lg">
-              <div>
-                <p style={{ color: '#9ca3af' }}>匹配度</p>
-                <p className="text-2xl font-bold" style={{ color: '#c9a84c' }}>{patternScore}</p>
-              </div>
-              <div>
-                <p style={{ color: '#9ca3af' }}>精度</p>
-                <p className="text-2xl font-bold" style={{ color: '#c9a84c' }}>{precisionScore}</p>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Finish button */}
-      {phase === 'drawing' && (
-        <button
-          onClick={finishDrawing}
-          className="mt-4 px-6 py-2 rounded-lg text-sm font-bold tracking-wider transition-all duration-300 cursor-pointer"
-          style={{
-            fontFamily: "'Cinzel', serif",
-            color: '#0a0e1a',
-            background: 'linear-gradient(135deg, #c9a84c, #d4a017)',
-          }}
-        >
-          画完了
-        </button>
+              画完了
+            </button>
+          )}
+        </>
       )}
     </div>
   );
