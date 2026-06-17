@@ -183,12 +183,15 @@ export default function ResultScreen() {
   return (
     <div className="flex flex-col items-center justify-center min-h-screen px-4 py-8 text-center">
       {/* Progress indicator */}
-      <div className="absolute top-6 left-1/2 -translate-x-1/2 flex items-center gap-2" style={{ color: '#9ca3af' }}>
+      <div className="absolute top-6 left-1/2 -translate-x-1/2 flex items-center gap-2 z-10" style={{ color: '#9ca3af' }}>
         <span style={{ color: '#c9a84c' }}>●</span>
         <span style={{ color: '#c9a84c' }}>●</span>
         <span style={{ color: '#c9a84c' }}>●</span>
         <span style={{ color: '#c9a84c' }}>分院结果</span>
       </div>
+
+      {/* Spacer for progress indicator */}
+      <div className="h-10" />
 
       {/* Photo capture phase */}
       {phase === 'photo' && (
@@ -601,7 +604,7 @@ export default function ResultScreen() {
                     className="w-full"
                   />
                   <p className="text-xs py-2" style={{ color: '#9ca3af', backgroundColor: 'rgba(15,15,30,0.8)' }}>
-                    AI 生成的学院巫师肖像
+                    AI 生成的{house.nameCn}巫师史诗场景
                   </p>
                 </div>
               )}

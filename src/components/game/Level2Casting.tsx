@@ -84,34 +84,8 @@ export default function Level2Casting() {
     return null;
   }, []);
 
-  const processFrame = useCallback(() => {
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    const overlay = overlayCanvasRef.current;
-
-    if (!video || !canvas || !overlay || video.videoWidth === 0) {
-      animFrameRef.current = requestAnimationFrame(processFrame);
-      return;
-    }
-
-    const ctx = canvas.getContext('2d');
-    const overlayCtx = overlay.getContext('2d');
-    if (!ctx || !overlayCtx) return;
-
-    // Draw video frame (mirrored)
-    ctx.save();
-    ctx.translate(CANVAS_W, 0);
-    ctx.scale(-1, 1);
-    ctx.drawImage(video, 0, 0, CANVAS_W, CANVAS_H);
-    ctx.restore();
-
-    // Get image data for analysis
-    const imageData = ctx.getImageData(0, 0, CANVAS_W, CANVAS_H);
-
-    // Find brightest point
-    const bright = findBrightestPoint(imageData);
-
-    // Draw target pattern on overlay
+  // Draw target pattern on overlay canvas (works with or without camera)
+  const drawPatternOnOverlay = useCallback((overlayCtx: CanvasRenderingContext2D) => {
     overlayCtx.clearRect(0, 0, CANVAS_W, CANVAS_H);
 
     // Draw target pattern with glow
@@ -132,55 +106,116 @@ export default function Level2Casting() {
 
     // Draw pattern points
     overlayCtx.setLineDash([]);
+    overlayCtx.shadowBlur = 0;
     for (const p of pattern.points) {
       overlayCtx.beginPath();
       overlayCtx.arc(p.x * CANVAS_W, p.y * CANVAS_H, 5, 0, Math.PI * 2);
       overlayCtx.fillStyle = 'rgba(201, 168, 76, 0.5)';
       overlayCtx.fill();
     }
+  }, [pattern]);
 
-    // Track bright point
-    if (bright && isDrawingRef.current) {
-      // Check if this point moved significantly from previous
-      const currentPoint = { x: 1 - bright.x, y: bright.y }; // Mirror x
+  // Draw existing traced trail on overlay
+  const drawTracedTrail = useCallback((overlayCtx: CanvasRenderingContext2D) => {
+    const points = tracedPointsRef.current;
+    if (points.length < 2) return;
 
-      if (prevBrightRef.current) {
-        const dx = currentPoint.x - prevBrightRef.current.x;
-        const dy = currentPoint.y - prevBrightRef.current.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
+    overlayCtx.beginPath();
+    overlayCtx.moveTo(points[0].x * CANVAS_W, points[0].y * CANVAS_H);
+    for (let i = 1; i < points.length; i++) {
+      overlayCtx.lineTo(points[i].x * CANVAS_W, points[i].y * CANVAS_H);
+    }
+    overlayCtx.strokeStyle = '#c9a84c';
+    overlayCtx.lineWidth = 3;
+    overlayCtx.shadowColor = '#c9a84c';
+    overlayCtx.shadowBlur = 15;
+    overlayCtx.stroke();
+    overlayCtx.shadowBlur = 0;
+  }, []);
 
-        if (dist < 0.15) { // Reasonable movement
-          tracedPointsRef.current.push(currentPoint);
+  const processFrame = useCallback(() => {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    const overlay = overlayCanvasRef.current;
 
-          // Draw glowing trail
-          overlayCtx.beginPath();
-          overlayCtx.moveTo(prevBrightRef.current.x * CANVAS_W, prevBrightRef.current.y * CANVAS_H);
-          overlayCtx.lineTo(currentPoint.x * CANVAS_W, currentPoint.y * CANVAS_H);
-          overlayCtx.strokeStyle = '#c9a84c';
-          overlayCtx.lineWidth = 3;
-          overlayCtx.shadowColor = '#c9a84c';
-          overlayCtx.shadowBlur = 15;
-          overlayCtx.stroke();
-        }
-      } else {
-        tracedPointsRef.current.push(currentPoint);
-      }
-
-      // Draw bright point indicator
-      overlayCtx.beginPath();
-      overlayCtx.arc(currentPoint.x * CANVAS_W, currentPoint.y * CANVAS_H, 8, 0, Math.PI * 2);
-      overlayCtx.fillStyle = 'rgba(255, 255, 200, 0.8)';
-      overlayCtx.shadowColor = '#fff';
-      overlayCtx.shadowBlur = 20;
-      overlayCtx.fill();
-
-      prevBrightRef.current = currentPoint;
+    if (!canvas || !overlay) {
+      animFrameRef.current = requestAnimationFrame(processFrame);
+      return;
     }
 
-    overlayCtx.shadowBlur = 0;
+    const ctx = canvas.getContext('2d');
+    const overlayCtx = overlay.getContext('2d');
+    if (!ctx || !overlayCtx) return;
+
+    const hasCamera = video && video.videoWidth > 0;
+
+    if (hasCamera) {
+      // Draw video frame (mirrored)
+      ctx.save();
+      ctx.translate(CANVAS_W, 0);
+      ctx.scale(-1, 1);
+      ctx.drawImage(video, 0, 0, CANVAS_W, CANVAS_H);
+      ctx.restore();
+
+      // Get image data for analysis
+      const imageData = ctx.getImageData(0, 0, CANVAS_W, CANVAS_H);
+
+      // Find brightest point
+      const bright = findBrightestPoint(imageData);
+
+      // Draw target pattern + trail on overlay
+      drawPatternOnOverlay(overlayCtx);
+      drawTracedTrail(overlayCtx);
+
+      // Track bright point
+      if (bright && isDrawingRef.current) {
+        const currentPoint = { x: 1 - bright.x, y: bright.y }; // Mirror x
+
+        if (prevBrightRef.current) {
+          const dx = currentPoint.x - prevBrightRef.current.x;
+          const dy = currentPoint.y - prevBrightRef.current.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+
+          if (dist < 0.15) {
+            tracedPointsRef.current.push(currentPoint);
+          }
+        } else {
+          tracedPointsRef.current.push(currentPoint);
+        }
+
+        // Draw bright point indicator
+        overlayCtx.beginPath();
+        overlayCtx.arc(currentPoint.x * CANVAS_W, currentPoint.y * CANVAS_H, 8, 0, Math.PI * 2);
+        overlayCtx.fillStyle = 'rgba(255, 255, 200, 0.8)';
+        overlayCtx.shadowColor = '#fff';
+        overlayCtx.shadowBlur = 20;
+        overlayCtx.fill();
+        overlayCtx.shadowBlur = 0;
+
+        prevBrightRef.current = currentPoint;
+      }
+    } else {
+      // No camera: draw dark background + pattern + trail on main canvas
+      ctx.fillStyle = '#0d0f1a';
+      ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+
+      // Draw subtle grid
+      ctx.strokeStyle = 'rgba(201, 168, 76, 0.05)';
+      ctx.lineWidth = 1;
+      for (let x = 0; x < CANVAS_W; x += 40) {
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, CANVAS_H); ctx.stroke();
+      }
+      for (let y = 0; y < CANVAS_H; y += 40) {
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(CANVAS_W, y); ctx.stroke();
+      }
+
+      // Draw pattern + trail on overlay
+      drawPatternOnOverlay(overlayCtx);
+      drawTracedTrail(overlayCtx);
+    }
 
     animFrameRef.current = requestAnimationFrame(processFrame);
-  }, [pattern, findBrightestPoint]);
+  }, [findBrightestPoint, drawPatternOnOverlay, drawTracedTrail]);
 
   // ---- Calculate result from traced points ----
   const calculateResultFromTrace = useCallback(() => {
@@ -292,7 +327,7 @@ export default function Level2Casting() {
     setPhase('analyzing');
   }, [stopDrawing]);
 
-  // Mouse/touch fallback for drawing on canvas
+  // Mouse/touch drawing on canvas
   const handleCanvasInteraction = useCallback((clientX: number, clientY: number) => {
     if (!overlayCanvasRef.current || phase !== 'drawing') return;
     const rect = overlayCanvasRef.current.getBoundingClientRect();
@@ -307,33 +342,19 @@ export default function Level2Casting() {
       const dist = Math.sqrt(dx * dx + dy * dy);
       if (dist < 0.15) {
         tracedPointsRef.current.push(currentPoint);
-
-        const ctx = overlayCanvasRef.current.getContext('2d');
-        if (ctx) {
-          ctx.beginPath();
-          ctx.moveTo(prevBrightRef.current.x * CANVAS_W, prevBrightRef.current.y * CANVAS_H);
-          ctx.lineTo(currentPoint.x * CANVAS_W, currentPoint.y * CANVAS_H);
-          ctx.strokeStyle = '#c9a84c';
-          ctx.lineWidth = 3;
-          ctx.shadowColor = '#c9a84c';
-          ctx.shadowBlur = 15;
-          ctx.stroke();
-          ctx.shadowBlur = 0;
-        }
       }
     } else {
       tracedPointsRef.current.push(currentPoint);
     }
 
     prevBrightRef.current = currentPoint;
+    // Trail will be drawn by processFrame loop
   }, [phase]);
 
   // ---- Cleanup on unmount ----
   useEffect(() => {
     return () => { cleanupMedia(); };
   }, [cleanupMedia]);
-
-  const noCameraMode = !streamRef.current && phase === 'drawing';
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen px-4 text-center">
@@ -445,12 +466,13 @@ export default function Level2Casting() {
             }}
           />
 
-          {noCameraMode && (
+          {!streamRef.current && phase === 'drawing' && (
             <div
-              className="absolute inset-0 flex items-center justify-center"
-              style={{ backgroundColor: 'rgba(0,0,0,0.7)' }}
+              className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none"
             >
-              <p style={{ color: '#e8dcc8' }}>用鼠标或手指沿着虚线描绘符文</p>
+              <p className="text-sm px-4 py-2 rounded-lg" style={{ color: 'rgba(201, 168, 76, 0.6)', backgroundColor: 'rgba(10, 14, 26, 0.5)' }}>
+                用鼠标或手指沿着虚线描绘符文
+              </p>
             </div>
           )}
 
