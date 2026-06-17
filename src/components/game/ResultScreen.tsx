@@ -207,7 +207,7 @@ export default function ResultScreen() {
   useEffect(() => {
     if (!generatedImageUrl || qrCodeDataUrl) return;
     QRCode.toDataURL(generatedImageUrl, {
-      width: 280,
+      width: 400,
       margin: 1,
       color: { dark: '#c9a84c', light: '#0a0e1a' },
     }).then(setQrCodeDataUrl).catch(() => {
@@ -220,18 +220,23 @@ export default function ResultScreen() {
     return Math.round(level1Result.totalScore * 0.5 + level2Result.score * 0.5);
   })();
 
+  // Card style helper
+  const cardStyle = (extra?: React.CSSProperties): React.CSSProperties => ({
+    background: 'rgba(15, 15, 30, 0.85)',
+    backdropFilter: 'blur(12px)',
+    border: `1px solid ${house.colors.secondary}40`,
+    ...extra,
+  });
+
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen px-4 py-8 text-center">
+    <div className="h-screen w-screen overflow-hidden flex flex-col items-center justify-center px-6 py-4 text-center">
       {/* Progress indicator */}
-      <div className="absolute top-6 left-1/2 -translate-x-1/2 flex items-center gap-2 z-10" style={{ color: '#9ca3af' }}>
+      <div className="absolute top-4 left-1/2 -translate-x-1/2 flex items-center gap-2 z-10" style={{ color: '#9ca3af' }}>
         <span style={{ color: '#c9a84c' }}>●</span>
         <span style={{ color: '#c9a84c' }}>●</span>
         <span style={{ color: '#c9a84c' }}>●</span>
         <span style={{ color: '#c9a84c' }}>分院结果</span>
       </div>
-
-      {/* Spacer for progress indicator */}
-      <div className="h-10" />
 
       {/* Photo capture phase */}
       {phase === 'photo' && (
@@ -301,12 +306,12 @@ export default function ResultScreen() {
         </div>
       )}
 
-      {/* Revealing phase & Done */}
+      {/* Revealing phase & Done — horizontal desktop layout */}
       {(phase === 'revealing' || phase === 'done') && (
-        <div className="flex flex-col items-center gap-4 w-full max-w-lg">
-          {/* House name reveal */}
+        <div className="w-full h-full flex flex-col items-center justify-center max-w-[1400px]">
+          {/* House name reveal — always at top center */}
           <h1
-            className="text-5xl sm:text-6xl font-black tracking-widest"
+            className="text-5xl font-black tracking-widest mb-1"
             style={{
               fontFamily: "'Cinzel', serif",
               color: '#ffffff',
@@ -326,362 +331,287 @@ export default function ResultScreen() {
           {phase === 'done' && (
             <>
               <p
-                className="text-xl mb-2"
+                className="text-lg mb-1"
                 style={{ color: house.colors.secondary, fontFamily: "'Cinzel', serif" }}
               >
                 {house.motto}
               </p>
 
-              {/* Hat message */}
               {sortedHouse && (
-                <p
-                  className="text-sm italic mb-2 px-4"
-                  style={{ color: '#c9a84c' }}
-                >
+                <p className="text-sm italic mb-3 px-4" style={{ color: '#c9a84c' }}>
                   🎩 &ldquo;{sortedHouse.hatMessage}&rdquo;
                 </p>
               )}
 
-              {/* Score breakdown */}
-              <div
-                className="w-full px-5 py-4 rounded-xl mb-2"
-                style={{
-                  background: 'rgba(15, 15, 30, 0.85)',
-                  backdropFilter: 'blur(12px)',
-                  border: `1px solid ${house.colors.secondary}40`,
-                }}
-              >
-                <h3 className="text-lg font-bold mb-3" style={{ color: house.colors.secondary, fontFamily: "'Cinzel', serif" }}>
-                  Assessment Report
-                </h3>
+              {/* ===== Main 2-column layout ===== */}
+              <div className="flex gap-4 w-full flex-1 min-h-0 max-h-[calc(100vh-200px)]">
 
-                {/* Level 1 breakdown */}
-                {level1Result && (
-                  <div className="mb-3 text-left">
-                    <p className="text-sm font-bold mb-2" style={{ color: '#c9a84c' }}>
-                      念咒评估
-                    </p>
-                    {/* Individual spells */}
-                    <div className="space-y-1.5 mb-2">
-                      {level1Result.spells.map((sr) => (
-                        <div key={sr.spell.name} className="flex items-center gap-2 text-xs">
-                          <span>{sr.spell.categoryEmoji}</span>
-                          <span style={{ color: CATEGORY_COLORS[sr.category] }}>{sr.spell.nameCn}</span>
-                          <span style={{ color: '#9ca3af' }}>准确{sr.accuracy}</span>
-                          <span style={{ color: '#9ca3af' }}>气势{sr.power}</span>
+                {/* LEFT: Generated Image + QR */}
+                <div className="flex flex-col items-center justify-center gap-3" style={{ flex: '1.1' }}>
+                  {generatedImageUrl ? (
+                    <div
+                      className="relative rounded-xl overflow-hidden w-full"
+                      style={{
+                        border: `2px solid ${house.colors.secondary}60`,
+                        boxShadow: `0 0 30px ${house.colors.secondary}30`,
+                        maxHeight: 'calc(100vh - 340px)',
+                      }}
+                    >
+                      <img
+                        src={generatedImageUrl}
+                        alt="Your wizard portrait"
+                        className="w-full h-full object-contain"
+                        style={{ maxHeight: 'calc(100vh - 340px)' }}
+                      />
+                    </div>
+                  ) : photoDataUrl ? (
+                    <div
+                      className="relative rounded-xl overflow-hidden w-full"
+                      style={{ border: `2px solid ${house.colors.secondary}60`, maxHeight: 'calc(100vh - 340px)' }}
+                    >
+                      <img src={photoDataUrl} alt="Your photo" className="w-full object-contain" style={{ maxHeight: 'calc(100vh - 340px)' }} />
+                      <div
+                        className="absolute bottom-0 left-0 right-0 px-4 py-2 text-center font-bold text-lg"
+                        style={{
+                          background: `linear-gradient(transparent, ${house.colors.primary}cc)`,
+                          color: house.colors.secondary,
+                        }}
+                      >
+                        {house.nameCn}
+                      </div>
+                    </div>
+                  ) : (
+                    <div
+                      className="w-full rounded-xl flex items-center justify-center"
+                      style={{
+                        background: 'rgba(15, 15, 30, 0.85)',
+                        border: `1px solid ${house.colors.secondary}30`,
+                        maxHeight: 'calc(100vh - 340px)',
+                        aspectRatio: '16/10',
+                      }}
+                    >
+                      <p className="text-sm" style={{ color: '#9ca3af' }}>AI 肖像生成中...</p>
+                    </div>
+                  )}
+
+                  {/* QR Code — large and prominent */}
+                  {qrCodeDataUrl && (
+                    <div className="flex items-center gap-3">
+                      <img
+                        src={qrCodeDataUrl}
+                        alt="扫码保存图片"
+                        className="rounded-lg"
+                        style={{ width: 88, height: 88, imageRendering: 'pixelated', border: `1px solid ${house.colors.secondary}30` }}
+                      />
+                      <div className="text-left">
+                        <p className="text-sm font-bold" style={{ color: house.colors.secondary }}>扫码保存</p>
+                        <p className="text-xs" style={{ color: '#9ca3af' }}>手机扫码下载你的巫师肖像</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* RIGHT: Info panels — scrollable only if needed */}
+                <div className="flex flex-col gap-3 overflow-y-auto min-h-0 pr-1" style={{ flex: '0.9' }}>
+
+                  {/* Score breakdown */}
+                  <div className="rounded-xl px-4 py-3" style={cardStyle()}>
+                    <h3 className="text-sm font-bold mb-2" style={{ color: house.colors.secondary, fontFamily: "'Cinzel', serif" }}>
+                      Assessment Report
+                    </h3>
+
+                    {level1Result && (
+                      <div className="mb-2 text-left">
+                        <p className="text-xs font-bold mb-1.5" style={{ color: '#c9a84c' }}>念咒评估</p>
+                        <div className="space-y-1 mb-1.5">
+                          {level1Result.spells.map((sr) => (
+                            <div key={sr.spell.name} className="flex items-center gap-2 text-xs">
+                              <span>{sr.spell.categoryEmoji}</span>
+                              <span style={{ color: CATEGORY_COLORS[sr.category] }}>{sr.spell.nameCn}</span>
+                              <span style={{ color: '#9ca3af' }}>准确{sr.accuracy}</span>
+                              <span style={{ color: '#9ca3af' }}>气势{sr.power}</span>
+                            </div>
+                          ))}
                         </div>
-                      ))}
+                        <div className="flex gap-4 text-xs">
+                          <span style={{ color: '#9ca3af' }}>准确度: <b style={{ color: '#e8dcc8' }}>{level1Result.accuracy}</b></span>
+                          <span style={{ color: '#9ca3af' }}>气势: <b style={{ color: '#e8dcc8' }}>{level1Result.power}</b></span>
+                        </div>
+                        {level1Result.darkAffinity > 0 && (
+                          <div className="mt-1">
+                            <MiniBar label="黑魔法亲和度" value={level1Result.darkAffinity} color="#8b5cf6" />
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {level2Result && (
+                      <div className="mb-2 text-left">
+                        <p className="text-xs font-bold mb-1.5" style={{ color: '#c9a84c' }}>施咒评估</p>
+                        <div className="flex gap-4 text-xs mb-1">
+                          <span style={{ color: '#9ca3af' }}>匹配度: <b style={{ color: '#e8dcc8' }}>{level2Result.score}</b></span>
+                          <span style={{ color: '#9ca3af' }}>精度: <b style={{ color: '#e8dcc8' }}>{level2Result.precision}</b></span>
+                        </div>
+                        <MiniBar label="图案匹配" value={level2Result.score} color={house.colors.secondary} />
+                      </div>
+                    )}
+
+                    <div
+                      className="pt-2 mt-1 text-base font-bold text-center"
+                      style={{ borderTop: `1px solid ${house.colors.secondary}30`, color: house.colors.secondary }}
+                    >
+                      综合魔力值: {totalScore}
                     </div>
-                    <div className="flex gap-4 text-sm">
-                      <span style={{ color: '#9ca3af' }}>平均准确度: <b style={{ color: '#e8dcc8' }}>{level1Result.accuracy}</b></span>
-                      <span style={{ color: '#9ca3af' }}>平均气势: <b style={{ color: '#e8dcc8' }}>{level1Result.power}</b></span>
+                  </div>
+
+                  {/* Traits */}
+                  {showTraits && (
+                    <div className="rounded-xl px-4 py-3" style={cardStyle()}>
+                      <p className="text-xs mb-1.5" style={{ color: '#9ca3af' }}>你的品质</p>
+                      <div className="flex justify-center gap-2 flex-wrap">
+                        {house.traits.map(trait => (
+                          <span
+                            key={trait}
+                            className="px-2 py-0.5 rounded-full text-xs font-bold"
+                            style={{
+                              backgroundColor: `${house.colors.secondary}20`,
+                              color: house.colors.secondary,
+                              border: `1px solid ${house.colors.secondary}40`,
+                            }}
+                          >
+                            {trait}
+                          </span>
+                        ))}
+                      </div>
                     </div>
-                    {level1Result.darkAffinity > 0 && (
-                      <div className="mt-1">
-                        <MiniBar label="黑魔法亲和度" value={level1Result.darkAffinity} color="#8b5cf6" />
+                  )}
+
+                  {/* Badge + Wand side by side */}
+                  <div className="flex gap-3">
+                    {/* Badge */}
+                    {showBadge && bestSpellData && (() => {
+                      const bestSpell = bestSpellData.spell;
+                      return (
+                        <div
+                          className="rounded-xl px-4 py-3 flex-1"
+                          style={{
+                            ...cardStyle(),
+                            animation: 'fadeSlideUp 0.6s ease-out',
+                          }}
+                        >
+                          <h3 className="text-sm font-bold mb-2" style={{ color: house.colors.secondary, fontFamily: "'Cinzel', serif" }}>
+                            专属徽章
+                          </h3>
+
+                          <div className="flex justify-center mb-2">
+                            <div
+                              className="relative rounded-lg overflow-hidden"
+                              style={{
+                                width: 120,
+                                height: 120,
+                                background: 'linear-gradient(135deg, #0a0e1a 0%, #1a1025 100%)',
+                                border: `2px solid ${house.colors.secondary}60`,
+                                boxShadow: `0 0 20px ${house.colors.secondary}30, inset 0 0 12px ${house.colors.primary}40`,
+                              }}
+                            >
+                              {badgeLoading && (
+                                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                  <div
+                                    className="w-8 h-8 rounded-full border-2 border-t-transparent animate-spin mb-1"
+                                    style={{ borderColor: `${house.colors.secondary}60`, borderTopColor: 'transparent' }}
+                                  />
+                                  <p className="text-[10px]" style={{ color: house.colors.secondary }}>锻造中...</p>
+                                </div>
+                              )}
+                              {badgeUrl && (
+                                <img
+                                  src={badgeUrl}
+                                  alt="专属徽章"
+                                  className="w-full h-full object-contain"
+                                  style={{ filter: `drop-shadow(0 0 8px ${house.colors.secondary}40)` }}
+                                />
+                              )}
+                              {!badgeUrl && !badgeLoading && (
+                                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                  <span style={{ fontSize: 36, filter: `drop-shadow(0 0 8px ${house.colors.secondary})` }}>
+                                    {bestSpell.categoryEmoji}
+                                  </span>
+                                  <span style={{ fontSize: 20, marginTop: 2, filter: `drop-shadow(0 0 6px ${house.colors.secondary})` }}>
+                                    {house.emoji}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          <p className="text-sm font-bold" style={{ color: house.colors.secondary }}>{bestSpell.nameCn}</p>
+                          <p className="text-[11px]" style={{ color: '#9ca3af' }}>
+                            {bestCategory === 'dark' || bestCategory === 'unforgivable' ? '暗黑之力' : bestCategory === 'defense' ? '守护之光' : bestCategory === 'combat' ? '战斗之魂' : '万象灵光'}
+                          </p>
+                        </div>
+                      );
+                    })()}
+
+                    {/* Wand */}
+                    {showWand && wand && (
+                      <div
+                        className="rounded-xl px-4 py-3 flex-1"
+                        style={{
+                          ...cardStyle({ border: '1px solid rgba(201, 168, 76, 0.3)' }),
+                          animation: 'fadeSlideUp 0.6s ease-out',
+                        }}
+                      >
+                        <h3 className="text-sm font-bold mb-2" style={{ color: '#c9a84c', fontFamily: "'Cinzel', serif" }}>
+                          Your Wand
+                        </h3>
+
+                        <div className="flex flex-col items-center mb-2">
+                          <img
+                            src="/wand.png"
+                            alt="Magic Wand"
+                            className="object-contain"
+                            style={{ width: 80, height: 80, filter: `drop-shadow(0 0 8px ${house.colors.secondary}80)` }}
+                          />
+                          <p className="text-sm font-bold mt-1" style={{ color: '#c9a84c', fontFamily: "'Cinzel', serif" }}>
+                            {wand.name}
+                          </p>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-left mb-2">
+                          <div><span style={{ color: '#9ca3af' }}>杖木：</span><span style={{ color: '#e8dcc8' }}>{wand.woodCn}</span></div>
+                          <div><span style={{ color: '#9ca3af' }}>杖芯：</span><span style={{ color: '#e8dcc8' }}>{wand.coreCn}</span></div>
+                          <div><span style={{ color: '#9ca3af' }}>长度：</span><span style={{ color: '#e8dcc8' }}>{wand.length}</span></div>
+                          <div><span style={{ color: '#9ca3af' }}>弹性：</span><span style={{ color: '#e8dcc8' }}>{wand.flexibility}</span></div>
+                        </div>
+
+                        {!wandPurchased ? (
+                          <button
+                            onClick={() => setWandPurchased(true)}
+                            className="w-full px-4 py-2 rounded-lg text-xs font-bold tracking-wider transition-all duration-300 cursor-pointer"
+                            style={{
+                              fontFamily: "'Cinzel', serif",
+                              color: '#0a0e1a',
+                              background: 'linear-gradient(135deg, #c9a84c, #d4a017, #c9a84c)',
+                              boxShadow: '0 0 15px rgba(201, 168, 76, 0.3)',
+                            }}
+                          >
+                            {wand.price} 加隆 · 购买
+                          </button>
+                        ) : (
+                          <p className="text-xs" style={{ color: '#c9a84c' }}>
+                            魔杖已选择你！预计7个猫头鹰工作日送达。
+                          </p>
+                        )}
                       </div>
                     )}
                   </div>
-                )}
-
-                {/* Level 2 breakdown */}
-                {level2Result && (
-                  <div className="mb-3 text-left">
-                    <p className="text-sm font-bold mb-2" style={{ color: '#c9a84c' }}>
-                      施咒评估
-                    </p>
-                    <div className="flex gap-4 text-sm mb-1">
-                      <span style={{ color: '#9ca3af' }}>匹配度: <b style={{ color: '#e8dcc8' }}>{level2Result.score}</b></span>
-                      <span style={{ color: '#9ca3af' }}>精度: <b style={{ color: '#e8dcc8' }}>{level2Result.precision}</b></span>
-                    </div>
-                    <MiniBar label="图案匹配" value={level2Result.score} color={house.colors.secondary} />
-                  </div>
-                )}
-
-                <div
-                  className="pt-2 mt-2 text-lg font-bold text-center"
-                  style={{ borderTop: `1px solid ${house.colors.secondary}30`, color: house.colors.secondary }}
-                >
-                  综合魔力值: {totalScore}
                 </div>
               </div>
 
-              {/* Traits */}
-              {showTraits && (
-                <div
-                  className="w-full px-5 py-4 rounded-xl mb-2"
-                  style={{
-                    background: 'rgba(15, 15, 30, 0.85)',
-                    backdropFilter: 'blur(12px)',
-                    border: `1px solid ${house.colors.secondary}40`,
-                  }}
-                >
-                  <p className="text-sm mb-2" style={{ color: '#9ca3af' }}>你的品质</p>
-                  <div className="flex justify-center gap-3 flex-wrap">
-                    {house.traits.map(trait => (
-                      <span
-                        key={trait}
-                        className="px-3 py-1 rounded-full text-sm font-bold"
-                        style={{
-                          backgroundColor: `${house.colors.secondary}20`,
-                          color: house.colors.secondary,
-                          border: `1px solid ${house.colors.secondary}40`,
-                        }}
-                      >
-                        {trait}
-                      </span>
-                    ))}
-                  </div>
-                  <p className="text-sm mt-3" style={{ color: '#e8dcc8' }}>
-                    {house.description}
-                  </p>
-                </div>
-              )}
-
-              {/* ===== 专属徽章 ===== */}
-              {showBadge && bestSpellData && (() => {
-                const bestSpell = bestSpellData.spell;
-                return (
-                  <div
-                    className="w-full px-5 py-5 rounded-xl mb-2"
-                    style={{
-                      background: 'rgba(15, 15, 30, 0.85)',
-                      backdropFilter: 'blur(12px)',
-                      border: `1px solid ${house.colors.secondary}40`,
-                      animation: 'fadeSlideUp 0.6s ease-out',
-                    }}
-                  >
-                    <h3 className="text-lg font-bold mb-3" style={{ color: house.colors.secondary, fontFamily: "'Cinzel', serif" }}>
-                      专属徽章
-                    </h3>
-
-                    {/* AI Generated Badge */}
-                    <div className="flex justify-center mb-3">
-                      <div
-                        className="relative rounded-xl overflow-hidden"
-                        style={{
-                          width: 256,
-                          height: 256,
-                          background: 'linear-gradient(135deg, #0a0e1a 0%, #1a1025 100%)',
-                          border: `2px solid ${house.colors.secondary}60`,
-                          boxShadow: `0 0 30px ${house.colors.secondary}30, inset 0 0 20px ${house.colors.primary}40`,
-                        }}
-                      >
-                        {badgeLoading && (
-                          <div className="absolute inset-0 flex flex-col items-center justify-center">
-                            <div
-                              className="w-10 h-10 rounded-full border-2 border-t-transparent animate-spin mb-2"
-                              style={{ borderColor: `${house.colors.secondary}60`, borderTopColor: 'transparent' }}
-                            />
-                            <p className="text-xs" style={{ color: house.colors.secondary }}>
-                              徽章锻造中...
-                            </p>
-                          </div>
-                        )}
-                        {badgeUrl && (
-                          <img
-                            src={badgeUrl}
-                            alt="专属徽章"
-                            className="w-full h-full object-contain"
-                            style={{ filter: `drop-shadow(0 0 12px ${house.colors.secondary}40)` }}
-                          />
-                        )}
-                        {!badgeUrl && !badgeLoading && (
-                          <div className="absolute inset-0 flex flex-col items-center justify-center">
-                            <span style={{ fontSize: 48, filter: `drop-shadow(0 0 12px ${house.colors.secondary})` }}>
-                              {bestSpell.categoryEmoji}
-                            </span>
-                            <span style={{ fontSize: 28, marginTop: 4, filter: `drop-shadow(0 0 8px ${house.colors.secondary})` }}>
-                              {house.emoji}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Badge details */}
-                    <div className="text-center">
-                      <p className="text-base font-bold mb-1" style={{ color: house.colors.secondary }}>
-                        {bestSpell.nameCn}
-                      </p>
-                      <p className="text-sm" style={{ color: '#9ca3af' }}>
-                        {bestSpell.nameEn} · {bestCategory === 'dark' || bestCategory === 'unforgivable' ? '暗黑之力' : bestCategory === 'defense' ? '守护之光' : bestCategory === 'combat' ? '战斗之魂' : '万象灵光'}
-                      </p>
-                      <div className="mt-2 flex items-center justify-center gap-2 text-xs">
-                        <span style={{ color: CATEGORY_COLORS[bestCategory] }}>
-                          {bestSpellData.spell.categoryEmoji} {bestSpellData.spell.nameCn}
-                        </span>
-                        <span style={{ color: '#9ca3af' }}>·</span>
-                        <span style={{ color: '#9ca3af' }}>
-                          准确 {bestSpellData.accuracy} / 气势 {bestSpellData.power}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })()}
-
-              {/* ===== 魔杖推荐 ===== */}
-              {showWand && wand && (
-                <div
-                  className="w-full px-5 py-5 rounded-xl mb-2"
-                  style={{
-                    background: 'rgba(15, 15, 30, 0.85)',
-                    backdropFilter: 'blur(12px)',
-                    border: `1px solid rgba(201, 168, 76, 0.3)`,
-                    animation: 'fadeSlideUp 0.6s ease-out',
-                  }}
-                >
-                  <h3 className="text-lg font-bold mb-3" style={{ color: '#c9a84c', fontFamily: "'Cinzel', serif" }}>
-                    Your Wand
-                  </h3>
-
-                  {/* Wand display */}
-                  <div className="flex flex-col items-center mb-4">
-                    <img
-                      src="/wand.png"
-                      alt="Magic Wand"
-                      className="w-28 h-28 object-contain"
-                      style={{ filter: `drop-shadow(0 0 12px ${house.colors.secondary}80)` }}
-                    />
-                    <p className="text-base font-bold" style={{ color: '#c9a84c', fontFamily: "'Cinzel', serif" }}>
-                      {wand.name}
-                    </p>
-                  </div>
-
-                  {/* Wand specs */}
-                  <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-left mb-3">
-                    <div>
-                      <span style={{ color: '#9ca3af' }}>杖木：</span>
-                      <span style={{ color: '#e8dcc8' }}>{wand.woodCn}</span>
-                    </div>
-                    <div>
-                      <span style={{ color: '#9ca3af' }}>杖芯：</span>
-                      <span style={{ color: '#e8dcc8' }}>{wand.coreCn}</span>
-                    </div>
-                    <div>
-                      <span style={{ color: '#9ca3af' }}>长度：</span>
-                      <span style={{ color: '#e8dcc8' }}>{wand.length}</span>
-                    </div>
-                    <div>
-                      <span style={{ color: '#9ca3af' }}>弹性：</span>
-                      <span style={{ color: '#e8dcc8' }}>{wand.flexibility}</span>
-                    </div>
-                  </div>
-
-                  {/* Wand description */}
-                  <p className="text-sm text-left mb-4" style={{ color: '#9ca3af', lineHeight: '1.6' }}>
-                    {wand.description}
-                  </p>
-
-                  {/* Price & Purchase */}
-                  <div
-                    className="pt-3"
-                    style={{ borderTop: '1px solid rgba(201, 168, 76, 0.2)' }}
-                  >
-                    {!wandPurchased ? (
-                      <div className="flex items-center justify-between">
-                        <div className="text-left">
-                          <p className="text-xs" style={{ color: '#9ca3af' }}>奥利凡德魔杖店 · 限量定制</p>
-                          <p className="text-xl font-bold" style={{ color: '#c9a84c', fontFamily: "'Cinzel', serif" }}>
-                            {wand.price} <span className="text-sm">加隆</span>
-                          </p>
-                          <p className="text-xs" style={{ color: '#9ca3af' }}>
-                            ≈ {wand.priceKnuts} 纳特
-                          </p>
-                        </div>
-                        <button
-                          onClick={() => setWandPurchased(true)}
-                          className="px-6 py-3 rounded-lg font-bold tracking-wider transition-all duration-300 cursor-pointer"
-                          style={{
-                            fontFamily: "'Cinzel', serif",
-                            color: '#0a0e1a',
-                            background: 'linear-gradient(135deg, #c9a84c, #d4a017, #c9a84c)',
-                            boxShadow: '0 0 20px rgba(201, 168, 76, 0.4)',
-                          }}
-                        >
-                          购买魔杖
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="text-center py-2">
-                        <p className="text-lg font-bold mb-1" style={{ color: '#c9a84c' }}>
-                          <img src="/wand.png" alt="" className="w-10 h-10 object-contain inline-block align-middle mr-2" style={{ filter: 'drop-shadow(0 0 6px #c9a84c80)' }} />
-                        <span className="align-middle">魔杖已选择你！</span>
-                        </p>
-                        <p className="text-sm" style={{ color: '#9ca3af' }}>
-                          奥利凡德先生说：&ldquo;魔杖选择巫师，记住这一点。&rdquo;
-                        </p>
-                        <p className="text-xs mt-2" style={{ color: '#9ca3af' }}>
-                          你的{wand.woodCn}魔杖正在由奥利凡德先生亲手制作，预计7个猫头鹰工作日送达。
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Generated image */}
-              {generatedImageUrl && (
-                <div
-                  className="w-full rounded-xl overflow-hidden mb-2"
-                  style={{
-                    border: `2px solid ${house.colors.secondary}60`,
-                    boxShadow: `0 0 30px ${house.colors.secondary}30`,
-                  }}
-                >
-                  <img
-                    src={generatedImageUrl}
-                    alt="Your wizard portrait"
-                    className="w-full"
-                  />
-                  <div
-                    className="flex items-center justify-between px-4 py-2"
-                    style={{ backgroundColor: 'rgba(15,15,30,0.9)' }}
-                  >
-                    <p className="text-xs" style={{ color: '#9ca3af' }}>
-                      AI 生成的{house.nameCn}巫师史诗场景
-                    </p>
-                    {qrCodeDataUrl && (
-                      <div className="flex items-center gap-2">
-                        <p className="text-xs" style={{ color: '#9ca3af' }}>扫码保存</p>
-                        <img
-                          src={qrCodeDataUrl}
-                          alt="扫码保存图片"
-                          className="w-16 h-16"
-                          style={{ imageRendering: 'pixelated' }}
-                        />
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Photo fallback */}
-              {!generatedImageUrl && photoDataUrl && (
-                <div
-                  className="w-full rounded-xl overflow-hidden mb-2"
-                  style={{ border: `2px solid ${house.colors.secondary}60` }}
-                >
-                  <div className="relative">
-                    <img src={photoDataUrl} alt="Your photo" className="w-full" />
-                    <div
-                      className="absolute bottom-0 left-0 right-0 px-4 py-3 text-center font-bold text-lg"
-                      style={{
-                        background: `linear-gradient(transparent, ${house.colors.primary}cc)`,
-                        color: house.colors.secondary,
-                      }}
-                    >
-                      {house.nameCn}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Restart */}
+              {/* Restart — at the very bottom */}
               <button
                 onClick={resetGame}
-                className="mt-2 px-6 py-2 rounded-lg text-sm cursor-pointer"
+                className="mt-3 px-6 py-1.5 rounded-lg text-xs cursor-pointer"
                 style={{
                   color: '#9ca3af',
                   background: 'rgba(255,255,255,0.05)',
@@ -701,11 +631,11 @@ export default function ResultScreen() {
 function MiniBar({ label, value, color }: { label: string; value: number; color: string }) {
   return (
     <div>
-      <div className="flex justify-between text-xs mb-0.5">
+      <div className="flex justify-between text-[10px] mb-0.5">
         <span style={{ color: '#9ca3af' }}>{label}</span>
         <span style={{ color }}>{value}</span>
       </div>
-      <div className="h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.1)' }}>
+      <div className="h-1 rounded-full overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.1)' }}>
         <div
           className="h-full rounded-full"
           style={{ width: `${value}%`, backgroundColor: color, boxShadow: `0 0 6px ${color}40` }}
