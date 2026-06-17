@@ -23,11 +23,9 @@ export default function Level1Chanting() {
   const [spellResults, setSpellResults] = useState<SpellResult[]>([]);
   const [allDone, setAllDone] = useState(false);
 
-  // --- Refs for mutable values accessed inside interval callbacks ---
-  // These MUST be kept in sync with their corresponding state
+  // --- Refs for mutable values accessed inside callbacks ---
   const currentSpellIndexRef = useRef(0);
   const spellResultsRef = useRef<SpellResult[]>([]);
-  const phaseRef = useRef<Phase>('ready');
 
   // --- Refs for hardware / browser APIs ---
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -37,16 +35,21 @@ export default function Level1Chanting() {
   const animFrameRef = useRef<number>(0);
   const volumeSamplesRef = useRef<number[]>([]);
   const transcriptRef = useRef('');
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const countdownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const micReadyRef = useRef(false);
   const completeLevel1Ref = useRef(completeLevel1);
   completeLevel1Ref.current = completeLevel1;
 
+  // Track whether component is mounted
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
+
   const currentSpell = spells[currentSpellIndex];
 
-  // ---- Cleanup helpers ----
-  const stopCurrent = useCallback(() => {
+  // ---- Cleanup all media resources ----
+  const cleanupMedia = useCallback(() => {
     if (animFrameRef.current) {
       cancelAnimationFrame(animFrameRef.current);
       animFrameRef.current = 0;
@@ -55,18 +58,6 @@ export default function Level1Chanting() {
       try { recognitionRef.current.stop(); } catch (_e) { /* ignore */ }
       recognitionRef.current = null;
     }
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
-  }, []);
-
-  const stopAll = useCallback(() => {
-    stopCurrent();
-    if (countdownTimerRef.current) {
-      clearInterval(countdownTimerRef.current);
-      countdownTimerRef.current = null;
-    }
     streamRef.current?.getTracks().forEach(t => t.stop());
     streamRef.current = null;
     if (audioContextRef.current?.state !== 'closed') {
@@ -74,11 +65,11 @@ export default function Level1Chanting() {
       audioContextRef.current = null;
     }
     analyserRef.current = null;
-  }, [stopCurrent]);
+  }, []);
 
   // ---- Volume analysis loop ----
   const analyzeVolume = useCallback(() => {
-    if (!analyserRef.current) return;
+    if (!analyserRef.current || !mountedRef.current) return;
     const data = new Uint8Array(analyserRef.current.frequencyBinCount);
     analyserRef.current.getByteTimeDomainData(data);
 
@@ -118,9 +109,8 @@ export default function Level1Chanting() {
     return { spell, accuracy, power, category: spell.category };
   }, []);
 
-  // ---- Finish current spell (reads from refs — safe inside intervals) ----
-  const finishCurrentSpell = useCallback(() => {
-    // Stop listening / timer for current spell
+  // ---- Stop current spell's recognition + animation (NOT the timer — useEffect handles that) ----
+  const stopSpellMedia = useCallback(() => {
     if (animFrameRef.current) {
       cancelAnimationFrame(animFrameRef.current);
       animFrameRef.current = 0;
@@ -129,10 +119,11 @@ export default function Level1Chanting() {
       try { recognitionRef.current.stop(); } catch (_e) { /* ignore */ }
       recognitionRef.current = null;
     }
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
+  }, []);
+
+  // ---- Finish current spell and advance ----
+  const doFinishCurrentSpell = useCallback(() => {
+    stopSpellMedia();
 
     // Read latest values from refs
     const idx = currentSpellIndexRef.current;
@@ -140,7 +131,7 @@ export default function Level1Chanting() {
     const result = calculateSpellResult(spell);
     const newResults = [...spellResultsRef.current, result];
 
-    // Sync refs → state
+    // Sync refs
     spellResultsRef.current = newResults;
     setSpellResults(newResults);
 
@@ -149,20 +140,58 @@ export default function Level1Chanting() {
     transcriptRef.current = '';
     volumeSamplesRef.current = [];
     setVolumeHistory([]);
-    setTimeLeft(TIME_PER_SPELL);
 
     if (idx < spells.length - 1) {
-      phaseRef.current = 'transition';
       setPhase('transition');
     } else {
-      phaseRef.current = 'done';
       setAllDone(true);
       setPhase('done');
     }
-  }, [calculateSpellResult, spells]);
+  }, [stopSpellMedia, calculateSpellResult, spells]);
 
-  // ---- Start listening for current spell ----
-  const startListeningForSpell = useCallback(() => {
+  // ============================================================
+  // EFFECT: Countdown timer (3-2-1 before each spell)
+  // Uses setTimeout per tick — React auto-cleans up on phase change
+  // ============================================================
+  useEffect(() => {
+    if (phase !== 'countdown') return;
+
+    if (countdown <= 0) {
+      // Countdown finished → transition to listening
+      startListeningPhase();
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      setCountdown(prev => prev - 1);
+    }, 1000);
+
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, countdown]);
+
+  // ============================================================
+  // EFFECT: Spell timer (10-9-8... during listening)
+  // Uses setTimeout per tick — React auto-cleans up on phase change
+  // ============================================================
+  useEffect(() => {
+    if (phase !== 'listening') return;
+
+    if (timeLeft <= 0) {
+      // Time's up → finish current spell
+      doFinishCurrentSpell();
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      setTimeLeft(prev => prev - 1);
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [phase, timeLeft, doFinishCurrentSpell]);
+
+  // ---- Start listening phase for current spell ----
+  const startListeningPhase = useCallback(() => {
     // Reset per-spell state
     transcriptRef.current = '';
     volumeSamplesRef.current = [];
@@ -198,21 +227,8 @@ export default function Level1Chanting() {
       analyzeVolume();
     }
 
-    phaseRef.current = 'listening';
     setPhase('listening');
-
-    // Timer countdown — finishCurrentSpell reads refs so it's safe
-    timerRef.current = setInterval(() => {
-      setTimeLeft(prev => {
-        if (prev <= 1) {
-          // Defer to next tick to avoid calling setState during render
-          setTimeout(() => finishCurrentSpell(), 0);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-  }, [analyzeVolume, finishCurrentSpell]);
+  }, [analyzeVolume]);
 
   // ---- Initialize microphone once ----
   const initMicrophone = useCallback(async () => {
@@ -248,30 +264,15 @@ export default function Level1Chanting() {
       });
       spellResultsRef.current = fakeResults;
       setSpellResults(fakeResults);
-      phaseRef.current = 'done';
       setAllDone(true);
       setPhase('done');
       return;
     }
 
     // 3-2-1 countdown
-    phaseRef.current = 'countdown';
-    setPhase('countdown');
     setCountdown(3);
-    countdownTimerRef.current = setInterval(() => {
-      setCountdown(prev => {
-        if (prev <= 1) {
-          if (countdownTimerRef.current) {
-            clearInterval(countdownTimerRef.current);
-            countdownTimerRef.current = null;
-          }
-          startListeningForSpell();
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-  }, [initMicrophone, spells, startListeningForSpell]);
+    setPhase('countdown');
+  }, [initMicrophone, spells]);
 
   // ---- Handle next spell button ----
   const handleNextSpell = useCallback(() => {
@@ -280,23 +281,15 @@ export default function Level1Chanting() {
     setCurrentSpellIndex(nextIdx);
 
     // Short countdown then start
-    phaseRef.current = 'countdown';
-    setPhase('countdown');
     setCountdown(2);
-    countdownTimerRef.current = setInterval(() => {
-      setCountdown(prev => {
-        if (prev <= 1) {
-          if (countdownTimerRef.current) {
-            clearInterval(countdownTimerRef.current);
-            countdownTimerRef.current = null;
-          }
-          startListeningForSpell();
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-  }, [startListeningForSpell]);
+    setPhase('countdown');
+  }, []);
+
+  // ---- Handle "I'm done" button (early finish) ----
+  const handleEarlyFinish = useCallback(() => {
+    // Change phase away from 'listening' so the timer effect cleans up automatically
+    doFinishCurrentSpell();
+  }, [doFinishCurrentSpell]);
 
   // ---- Build final Level1Result ----
   const finalResult = useMemo<Level1Result | null>(() => {
@@ -326,8 +319,8 @@ export default function Level1Chanting() {
 
   // ---- Cleanup on unmount ----
   useEffect(() => {
-    return () => { stopAll(); };
-  }, [stopAll]);
+    return () => { cleanupMedia(); };
+  }, [cleanupMedia]);
 
   // ---- Category styling helpers ----
   const getCategoryColor = (cat: SpellCategory): string => {
@@ -525,7 +518,7 @@ export default function Level1Chanting() {
       {/* Early stop button */}
       {phase === 'listening' && (
         <button
-          onClick={() => { finishCurrentSpell(); }}
+          onClick={handleEarlyFinish}
           className="px-6 py-2 rounded-lg text-sm cursor-pointer"
           style={{
             color: '#e8dcc8',
@@ -682,7 +675,7 @@ function ScoreBar({ label, value, barColor }: { label: string; value: number; ba
 
   return (
     <div>
-      <div className="flex justify-between mb-1 text-sm">
+      <div className="flex justify-between text-sm mb-1">
         <span style={{ color: '#9ca3af' }}>{label}</span>
         <span style={{ color: getColor(value) }}>{value}</span>
       </div>
@@ -691,11 +684,10 @@ function ScoreBar({ label, value, barColor }: { label: string; value: number; ba
         style={{ backgroundColor: 'rgba(255,255,255,0.1)' }}
       >
         <div
-          className="h-full rounded-full transition-all duration-1000"
+          className="h-full rounded-full transition-all duration-500"
           style={{
             width: `${value}%`,
             backgroundColor: getColor(value),
-            boxShadow: `0 0 8px ${getColor(value)}40`,
           }}
         />
       </div>

@@ -5,7 +5,9 @@ import { useGame, type Level2Result } from './GameProvider';
 import { getRandomPattern, calculatePatternScore } from '@/lib/patterns';
 import type { MagicPattern } from '@/lib/patterns';
 
-type Phase = 'ready' | 'drawing' | 'analyzing' | 'done';
+type Phase = 'ready' | 'countdown' | 'drawing' | 'analyzing' | 'done';
+
+const DRAW_TIME_LIMIT = 15; // seconds
 
 export default function Level2Casting() {
   const { completeLevel2, level1Result } = useGame();
@@ -13,6 +15,7 @@ export default function Level2Casting() {
   const [phase, setPhase] = useState<Phase>('ready');
   const [result, setResult] = useState<Level2Result | null>(null);
   const [countdown, setCountdown] = useState(0);
+  const [timeLeft, setTimeLeft] = useState(DRAW_TIME_LIMIT);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -22,31 +25,29 @@ export default function Level2Casting() {
   const tracedPointsRef = useRef<{ x: number; y: number }[]>([]);
   const prevBrightRef = useRef<{ x: number; y: number } | null>(null);
   const isDrawingRef = useRef(false);
-  const countdownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const autoStopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const analyzeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
+  }, []);
 
   const CANVAS_W = 640;
   const CANVAS_H = 480;
 
-  const stopAll = useCallback(() => {
+  // ---- Cleanup media resources ----
+  const cleanupMedia = useCallback(() => {
     if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
     animFrameRef.current = 0;
-    if (countdownTimerRef.current) {
-      clearInterval(countdownTimerRef.current);
-      countdownTimerRef.current = null;
-    }
-    if (autoStopTimerRef.current) {
-      clearTimeout(autoStopTimerRef.current);
-      autoStopTimerRef.current = null;
-    }
-    if (analyzeTimerRef.current) {
-      clearTimeout(analyzeTimerRef.current);
-      analyzeTimerRef.current = null;
-    }
     streamRef.current?.getTracks().forEach(t => t.stop());
     streamRef.current = null;
   }, []);
+
+  // ---- Stop drawing (recognition + camera) ----
+  const stopDrawing = useCallback(() => {
+    isDrawingRef.current = false;
+    cleanupMedia();
+  }, [cleanupMedia]);
 
   // Find brightest point in the video frame (wand tip)
   const findBrightestPoint = useCallback((imageData: ImageData): { x: number; y: number; brightness: number } | null => {
@@ -181,7 +182,21 @@ export default function Level2Casting() {
     animFrameRef.current = requestAnimationFrame(processFrame);
   }, [pattern, findBrightestPoint]);
 
-  const startCamera = useCallback(async () => {
+  // ---- Calculate result from traced points ----
+  const calculateResultFromTrace = useCallback(() => {
+    const points = tracedPointsRef.current;
+    const score = calculatePatternScore(points, pattern);
+    const precision = points.length > 0
+      ? Math.min(Math.round(points.length / 3), 100)
+      : 0;
+
+    const r: Level2Result = { pattern, score, precision };
+    setResult(r);
+    setPhase('done');
+  }, [pattern]);
+
+  // ---- Start camera and drawing ----
+  const startDrawing = useCallback(async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }
@@ -198,55 +213,84 @@ export default function Level2Casting() {
       tracedPointsRef.current = [];
       prevBrightRef.current = null;
       isDrawingRef.current = true;
+      setTimeLeft(DRAW_TIME_LIMIT);
       setPhase('drawing');
       processFrame();
-
-      // Auto-stop after 15 seconds
-      autoStopTimerRef.current = setTimeout(() => {
-        if (isDrawingRef.current) {
-          isDrawingRef.current = false;
-          stopAll();
-          setPhase('analyzing');
-          analyzeTimerRef.current = setTimeout(calculateResultFromTrace, 1500);
-        }
-      }, 15000);
 
     } catch (err) {
       console.error('Camera access denied:', err);
       // Fallback: use mouse/touch drawing
+      tracedPointsRef.current = [];
+      prevBrightRef.current = null;
+      isDrawingRef.current = true;
+      setTimeLeft(DRAW_TIME_LIMIT);
       setPhase('drawing');
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [processFrame, stopAll]);
+  }, [processFrame]);
 
-  const calculateResultFromTrace = useCallback(() => {
-    const points = tracedPointsRef.current;
-    const score = calculatePatternScore(points, pattern);
-    const precision = points.length > 0
-      ? Math.min(Math.round(points.length / 3), 100)
-      : 0;
+  // ============================================================
+  // EFFECT: Countdown timer (3-2-1 before drawing)
+  // ============================================================
+  useEffect(() => {
+    if (phase !== 'countdown') return;
 
-    const r: Level2Result = { pattern, score, precision };
-    setResult(r);
-    setPhase('done');
-  }, [pattern]);
+    if (countdown <= 0) {
+      // Countdown finished → start drawing
+      startDrawing();
+      return;
+    }
 
+    const timer = setTimeout(() => {
+      setCountdown(prev => prev - 1);
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [phase, countdown, startDrawing]);
+
+  // ============================================================
+  // EFFECT: Drawing time limit (15-14-13... during drawing)
+  // ============================================================
+  useEffect(() => {
+    if (phase !== 'drawing') return;
+
+    if (timeLeft <= 0) {
+      // Time's up → auto finish
+      stopDrawing();
+      setPhase('analyzing');
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      setTimeLeft(prev => prev - 1);
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [phase, timeLeft, stopDrawing]);
+
+  // ============================================================
+  // EFFECT: Analyzing delay (1.5s after finishing drawing)
+  // ============================================================
+  useEffect(() => {
+    if (phase !== 'analyzing') return;
+
+    const timer = setTimeout(() => {
+      calculateResultFromTrace();
+    }, 1500);
+
+    return () => clearTimeout(timer);
+  }, [phase, calculateResultFromTrace]);
+
+  // ---- Handle start button ----
   const handleStart = useCallback(() => {
     setCountdown(3);
-    countdownTimerRef.current = setInterval(() => {
-      setCountdown(prev => {
-        if (prev <= 1) {
-          if (countdownTimerRef.current) {
-            clearInterval(countdownTimerRef.current);
-            countdownTimerRef.current = null;
-          }
-          startCamera();
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-  }, [startCamera]);
+    setPhase('countdown');
+  }, []);
+
+  // ---- Handle "I'm done" button ----
+  const handleFinishDrawing = useCallback(() => {
+    stopDrawing();
+    setPhase('analyzing');
+  }, [stopDrawing]);
 
   // Mouse/touch fallback for drawing on canvas
   const handleCanvasInteraction = useCallback((clientX: number, clientY: number) => {
@@ -284,9 +328,10 @@ export default function Level2Casting() {
     prevBrightRef.current = currentPoint;
   }, [phase]);
 
+  // ---- Cleanup on unmount ----
   useEffect(() => {
-    return () => { stopAll(); };
-  }, [stopAll]);
+    return () => { cleanupMedia(); };
+  }, [cleanupMedia]);
 
   const noCameraMode = !streamRef.current && phase === 'drawing';
 
@@ -409,24 +454,39 @@ export default function Level2Casting() {
             </div>
           )}
 
+          {/* REC indicator + timer */}
           {phase === 'drawing' && (
             <div
-              className="absolute top-3 left-3 flex items-center gap-2 px-3 py-1 rounded-full text-sm"
-              style={{
-                backgroundColor: 'rgba(239, 68, 68, 0.2)',
-                color: '#ef4444',
-                border: '1px solid rgba(239, 68, 68, 0.3)',
-              }}
+              className="absolute top-3 left-3 flex items-center gap-3"
             >
-              <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-              REC
+              <div
+                className="flex items-center gap-2 px-3 py-1 rounded-full text-sm"
+                style={{
+                  backgroundColor: 'rgba(239, 68, 68, 0.2)',
+                  color: '#ef4444',
+                  border: '1px solid rgba(239, 68, 68, 0.3)',
+                }}
+              >
+                <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                REC
+              </div>
+              <div
+                className="px-3 py-1 rounded-full text-sm font-bold"
+                style={{
+                  backgroundColor: timeLeft <= 5 ? 'rgba(239, 68, 68, 0.3)' : 'rgba(201, 168, 76, 0.2)',
+                  color: timeLeft <= 5 ? '#ef4444' : '#c9a84c',
+                  border: `1px solid ${timeLeft <= 5 ? 'rgba(239, 68, 68, 0.4)' : 'rgba(201, 168, 76, 0.3)'}`,
+                }}
+              >
+                {timeLeft}s
+              </div>
             </div>
           )}
         </div>
       )}
 
       {/* Countdown */}
-      {countdown > 0 && (
+      {phase === 'countdown' && countdown > 0 && (
         <div
           className="text-8xl font-bold mb-6"
           style={{
@@ -443,7 +503,7 @@ export default function Level2Casting() {
       {phase === 'ready' && (
         <p className="text-sm mb-4 max-w-sm" style={{ color: '#9ca3af' }}>
           打开摄像头后，用发光物体（如手机手电筒）对准摄像头，沿虚线描绘符文。
-          也可以用鼠标/手指直接在画面上描绘。
+          也可以用鼠标/手指直接在画面上描绘。限时 {DRAW_TIME_LIMIT} 秒。
         </p>
       )}
 
@@ -474,16 +534,7 @@ export default function Level2Casting() {
       {/* Drawing controls */}
       {phase === 'drawing' && (
         <button
-          onClick={() => {
-            isDrawingRef.current = false;
-            if (autoStopTimerRef.current) {
-              clearTimeout(autoStopTimerRef.current);
-              autoStopTimerRef.current = null;
-            }
-            stopAll();
-            setPhase('analyzing');
-            analyzeTimerRef.current = setTimeout(calculateResultFromTrace, 1500);
-          }}
+          onClick={handleFinishDrawing}
           className="px-6 py-2 rounded-lg text-sm cursor-pointer"
           style={{
             color: '#e8dcc8',
