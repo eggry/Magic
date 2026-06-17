@@ -5,6 +5,7 @@ import { useGame, type Level1Result, type SpellResult } from './GameProvider';
 import { pickThreeSpells } from '@/lib/spells';
 import { matchSpell } from '@/lib/spellMatch';
 import type { Spell, SpellCategory } from '@/lib/spells';
+import SpellAnimation from './SpellAnimation';
 
 type Phase = 'ready' | 'countdown' | 'listening' | 'transition' | 'done';
 
@@ -20,6 +21,7 @@ export default function Level1Chanting() {
   const [transcript, setTranscript] = useState('');
   const [volumeHistory, setVolumeHistory] = useState<number[]>([]);
   const [timeLeft, setTimeLeft] = useState(TIME_PER_SPELL);
+  const [animatingSpell, setAnimatingSpell] = useState<string | null>(null);
   const [countdown, setCountdown] = useState(0);
   const [spellResults, setSpellResults] = useState<SpellResult[]>([]);
   const [allDone, setAllDone] = useState(false);
@@ -198,8 +200,16 @@ export default function Level1Chanting() {
     if (phase !== 'listening') return;
 
     if (timeLeft <= 0) {
-      // Time's up → finish current spell
-      doFinishCurrentSpell();
+      // Time's up → check if matched, play animation, then finish
+      const spell = spells[currentSpellIndex];
+      const spokenText = transcriptRef.current.trim();
+      const accuracy = spokenText ? matchSpell(spokenText, spell.nameCn, spell.aliases) : 0;
+      if (accuracy >= 40 && !autoSubmittedRef.current) {
+        autoSubmittedRef.current = true;
+        setAnimatingSpell(spell.nameCn);
+      } else {
+        doFinishCurrentSpell();
+      }
       return;
     }
 
@@ -250,13 +260,9 @@ export default function Level1Chanting() {
             const accuracy = matchSpell(spokenText, spell.nameCn, spell.aliases);
             if (accuracy >= 40) {
               autoSubmittedRef.current = true;
-              // 短暂延迟让用户看到识别结果，然后自动提交
-              setMatchDetail(accuracy >= 70 ? '匹配成功!' : '基本匹配，继续...');
-              setTimeout(() => {
-                if (phaseRef.current === 'listening') {
-                  doFinishCurrentSpell();
-                }
-              }, 800);
+              setMatchDetail(accuracy >= 70 ? '匹配成功!' : '基本匹配...');
+              // 播放咒语动画，动画结束后自动继续
+              setAnimatingSpell(spell.nameCn);
             }
           }
         }
@@ -341,9 +347,16 @@ export default function Level1Chanting() {
 
   // ---- Handle "I'm done" button (early finish) ----
   const handleEarlyFinish = useCallback(() => {
-    // Change phase away from 'listening' so the timer effect cleans up automatically
-    doFinishCurrentSpell();
-  }, [doFinishCurrentSpell]);
+    const spell = spells[currentSpellIndex];
+    const spokenText = transcriptRef.current.trim();
+    const accuracy = spokenText ? matchSpell(spokenText, spell.nameCn, spell.aliases) : 0;
+    if (accuracy >= 40 && !autoSubmittedRef.current) {
+      autoSubmittedRef.current = true;
+      setAnimatingSpell(spell.nameCn);
+    } else {
+      doFinishCurrentSpell();
+    }
+  }, [doFinishCurrentSpell, spells, currentSpellIndex]);
 
   // ---- Build final Level1Result ----
   const finalResult = useMemo<Level1Result | null>(() => {
@@ -397,8 +410,19 @@ export default function Level1Chanting() {
     }
   };
 
+  const handleAnimationComplete = useCallback(() => {
+    setAnimatingSpell(null);
+    if (phaseRef.current === 'listening') {
+      doFinishCurrentSpell();
+    }
+  }, [doFinishCurrentSpell]);
+
   return (
     <div className="flex flex-col items-center justify-center min-h-screen px-4 text-center">
+      {/* Spell Animation Overlay */}
+      {animatingSpell && (
+        <SpellAnimation spellName={animatingSpell} onComplete={handleAnimationComplete} />
+      )}
       {/* Progress indicator */}
       <div className="absolute top-6 left-1/2 -translate-x-1/2 flex items-center gap-2" style={{ color: '#9ca3af' }}>
         <span style={{ color: '#c9a84c' }}>●</span>
