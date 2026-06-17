@@ -3,14 +3,11 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { motion } from "framer-motion";
 import { useGame } from "./GameProvider";
-import { Camera, Sparkles, Wand2, CheckCircle } from "lucide-react";
+import { Camera } from "lucide-react";
 
 export default function PhotoCapture() {
   const { sortedHouse, setResult, completePhoto } = useGame();
   const [photoTaken, setPhotoTaken] = useState(false);
-  const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(null);
-  const [generating, setGenerating] = useState(false);
-  const [generated, setGenerated] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -27,7 +24,7 @@ export default function PhotoCapture() {
           videoRef.current.srcObject = stream;
         }
       } catch {
-        // no camera
+        // no camera - show placeholder
       }
     }
     startCamera();
@@ -36,7 +33,7 @@ export default function PhotoCapture() {
     };
   }, []);
 
-  const handleTakePhoto = useCallback(async () => {
+  const handleTakePhoto = useCallback(() => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
     if (!video || !canvas) return;
@@ -48,45 +45,44 @@ export default function PhotoCapture() {
 
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
     const dataUrl = canvas.toDataURL("image/jpeg", 0.92);
-    setPhotoDataUrl(dataUrl);
-    setPhotoTaken(true);
 
     // Stop camera
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
 
-    // Save photo immediately
+    setPhotoTaken(true);
+
+    // Save photo and immediately go to result
     if (sortedHouse) {
       setResult(sortedHouse, dataUrl, null);
     }
 
-    // Start background portrait generation
-    setGenerating(true);
-    try {
-      const base64Data = dataUrl.split(",")[1];
-      const res = await fetch("/api/generate-image", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          house: sortedHouse?.nameEn ?? "gryffindor",
-          photoBase64: base64Data,
-        }),
+    // Fire-and-forget background portrait generation
+    // Do NOT await - let user proceed immediately
+    const base64Data = dataUrl.split(",")[1];
+    fetch("/api/generate-image", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        house: sortedHouse?.nameEn ?? "gryffindor",
+        photoBase64: base64Data,
+      }),
+    })
+      .then((res) => res.json())
+      .then((data: { success?: boolean; imageUrl?: string }) => {
+        if (data.success && data.imageUrl && sortedHouse) {
+          setResult(sortedHouse, dataUrl, data.imageUrl);
+        }
+      })
+      .catch(() => {
+        // silent fail - portrait will show placeholder
       });
-      const data = (await res.json()) as { success?: boolean; imageUrl?: string };
-      if (data.success && data.imageUrl && sortedHouse) {
-        setResult(sortedHouse, dataUrl, data.imageUrl);
-      }
-    } catch {
-      // silent fail
-    } finally {
-      setGenerating(false);
-      setGenerated(true);
-    }
-  }, [sortedHouse, setResult]);
 
-  const handleConfirm = useCallback(() => {
-    completePhoto();
-  }, [completePhoto]);
+    // Immediately proceed to result phase
+    setTimeout(() => {
+      completePhoto();
+    }, 800);
+  }, [sortedHouse, setResult, completePhoto]);
 
   const houseColor = sortedHouse?.colors.primary ?? "#c9a84c";
 
@@ -119,125 +115,138 @@ export default function PhotoCapture() {
 
       {/* title */}
       <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
-        className="mb-6 text-center"
+        initial={{ y: -20, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ delay: 0.2 }}
+        className="relative z-10 mb-6 text-center"
       >
-        <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full"
-          style={{ background: `linear-gradient(135deg, ${houseColor}, ${sortedHouse?.colors.secondary ?? "#e8dcc8"})` }}>
-          <Camera className="h-7 w-7 text-white" />
-        </div>
-        <h2 className="text-2xl font-bold" style={{ fontFamily: "Cinzel, serif", color: "#c9a84c" }}>
+        <h2
+          className="text-2xl font-bold"
+          style={{
+            color: "#c9a84c",
+            textShadow: "0 0 15px rgba(201,168,76,0.5), 0 2px 4px rgba(0,0,0,0.8)",
+            fontFamily: "'Cinzel', serif",
+          }}
+        >
           巫师肖像采集
         </h2>
         <p className="mt-1 text-sm" style={{ color: "#9ca3af" }}>
-          分院帽需要一张你的肖像，用于生成专属巫师形象
+          分院帽需要记录你的面容，以便施展换装魔法
         </p>
       </motion.div>
 
-      {/* camera / preview area */}
-      <div className="relative mb-6 w-full max-w-md">
+      {/* camera preview or taken photo */}
+      <motion.div
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ delay: 0.4 }}
+        className="relative z-10"
+      >
         <div
-          className="relative overflow-hidden rounded-2xl border-2 shadow-2xl"
+          className="relative overflow-hidden rounded-xl border-2"
           style={{
-            borderColor: `${houseColor}40`,
-            background: "rgba(10,10,20,0.7)",
-            aspectRatio: "4/3",
+            width: "480px",
+            maxWidth: "80vw",
+            height: "360px",
+            borderColor: photoTaken ? houseColor : "rgba(201,168,76,0.4)",
+            boxShadow: photoTaken
+              ? `0 0 30px ${houseColor}40`
+              : "0 0 20px rgba(201,168,76,0.15)",
           }}
         >
+          <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            muted
+            className="absolute inset-0 h-full w-full object-cover"
+            style={{ display: photoTaken ? "none" : "block", transform: "scaleX(-1)" }}
+          />
+          {photoTaken && (
+            <canvas
+              ref={canvasRef}
+              className="absolute inset-0 h-full w-full object-cover"
+              style={{ transform: "scaleX(-1)" }}
+            />
+          )}
           {!photoTaken && (
-            <video
-              ref={videoRef}
-              autoPlay
-              playsInline
-              muted
-              className="absolute inset-0 h-full w-full object-cover"
-              style={{ transform: "scaleX(-1)" }}
-            />
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+              <div
+                className="h-48 w-48 rounded-full border-2 border-dashed"
+                style={{ borderColor: "rgba(201,168,76,0.3)" }}
+              />
+            </div>
           )}
-          {photoTaken && photoDataUrl && (
-            <img
-              src={photoDataUrl}
-              alt="巫师肖像预览"
-              className="absolute inset-0 h-full w-full object-cover"
-              style={{ transform: "scaleX(-1)" }}
-            />
-          )}
-
-          {/* Corner decorations */}
-          <div className="absolute inset-0 pointer-events-none">
-            <div className="absolute left-2 top-2 h-6 w-6 border-l-2 border-t-2" style={{ borderColor: houseColor }} />
-            <div className="absolute right-2 top-2 h-6 w-6 border-r-2 border-t-2" style={{ borderColor: houseColor }} />
-            <div className="absolute left-2 bottom-2 h-6 w-6 border-l-2 border-b-2" style={{ borderColor: houseColor }} />
-            <div className="absolute right-2 bottom-2 h-6 w-6 border-r-2 border-b-2" style={{ borderColor: houseColor }} />
-          </div>
         </div>
 
-        {/* hidden canvas */}
-        <canvas ref={canvasRef} className="hidden" />
-
-        {/* Status indicators */}
-        {photoTaken && (
+        {/* shutter button */}
+        {!photoTaken && (
           <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="absolute -bottom-12 left-0 right-0 flex justify-center gap-3"
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ delay: 0.6 }}
+            className="mt-6 flex justify-center"
           >
-            {generating && (
-              <div className="flex items-center gap-2 rounded-full px-4 py-1.5 text-xs"
-                style={{ background: "rgba(201,168,76,0.15)", border: "1px solid rgba(201,168,76,0.3)", color: "#c9a84c" }}>
-                <Sparkles className="h-3.5 w-3.5 animate-spin" />
-                分院帽正在为你施法...
-              </div>
-            )}
-            {generated && !generating && (
-              <div className="flex items-center gap-2 rounded-full px-4 py-1.5 text-xs"
-                style={{ background: "rgba(74,222,128,0.15)", border: "1px solid rgba(74,222,128,0.3)", color: "#4ade80" }}>
-                <CheckCircle className="h-3.5 w-3.5" />
-                巫师形象已生成
-              </div>
-            )}
+            <button
+              onClick={handleTakePhoto}
+              className="group relative flex h-16 w-16 items-center justify-center rounded-full transition-all duration-300 hover:scale-110"
+              style={{
+                background: "rgba(201,168,76,0.15)",
+                border: "2px solid rgba(201,168,76,0.5)",
+                boxShadow: "0 0 15px rgba(201,168,76,0.2)",
+              }}
+            >
+              <div
+                className="h-12 w-12 rounded-full transition-all duration-300 group-hover:h-10 group-hover:w-10"
+                style={{
+                  background: "rgba(201,168,76,0.8)",
+                  boxShadow: "0 0 10px rgba(201,168,76,0.5)",
+                }}
+              />
+            </button>
           </motion.div>
         )}
-      </div>
 
-      {/* button */}
-      <div className="mt-14 flex gap-4">
-        {!photoTaken ? (
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={handleTakePhoto}
-            className="flex items-center gap-2 rounded-xl px-10 py-4 text-lg font-bold text-white shadow-lg transition-shadow hover:shadow-xl"
-            style={{
-              background: `linear-gradient(135deg, ${houseColor}, ${sortedHouse?.colors.secondary ?? "#e8dcc8"})`,
-              fontFamily: "Noto Serif SC, serif",
-            }}
+        {/* instruction */}
+        {!photoTaken && (
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.8 }}
+            className="mt-3 text-center text-sm"
+            style={{ color: "#9ca3af" }}
           >
-            <Camera className="h-5 w-5" />
-            拍照
-          </motion.button>
-        ) : (
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={handleConfirm}
-            className="flex items-center gap-2 rounded-xl px-10 py-4 text-lg font-bold text-white shadow-lg transition-shadow hover:shadow-xl"
-            style={{
-              background: "linear-gradient(135deg, #c9a84c, #d4a017)",
-              fontFamily: "Noto Serif SC, serif",
-            }}
-          >
-            <Wand2 className="h-5 w-5" />
-            {generating ? "巫师形象生成中..." : "下一步：查看巫师形象"}
-          </motion.button>
+            点击快门拍摄你的巫师肖像
+          </motion.p>
         )}
-      </div>
 
-      <p className="mt-6 text-center text-xs" style={{ color: "#9ca3af" }}>
-        {photoTaken ? "你的肖像已采集，分院帽正在后台为你生成专属巫师形象" : "请正对镜头，保持自然表情"}
-      </p>
+        {/* processing indicator after photo taken */}
+        {photoTaken && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="mt-6 flex flex-col items-center gap-2"
+          >
+            <div
+              className="h-1 w-32 overflow-hidden rounded-full"
+              style={{ background: "rgba(201,168,76,0.2)" }}
+            >
+              <motion.div
+                className="h-full rounded-full"
+                style={{ background: "#c9a84c" }}
+                initial={{ width: "0%" }}
+                animate={{ width: "100%" }}
+                transition={{ duration: 0.8 }}
+              />
+            </div>
+            <p className="text-sm" style={{ color: "#c9a84c" }}>
+              正在进入魔法大厅...
+            </p>
+          </motion.div>
+        )}
+      </motion.div>
+
+      <canvas ref={canvasRef} className="hidden" />
     </motion.div>
   );
 }

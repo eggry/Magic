@@ -22,7 +22,7 @@ import type { HouseName } from "@/lib/sorting-hat";
 
 export default function ResultScreen() {
   const { level1Result, level2Result, sortedHouse, generatedImageUrl, resetGame } = useGame();
-  const [step, setStep] = useState<"portrait" | "badge" | "wand" | "report">("portrait");
+  const [step, setStep] = useState<"report" | "badge" | "wand" | "portrait">("report");
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string | null>(null);
   const [wandBought, setWandBought] = useState(false);
   const [badgeForged, setBadgeForged] = useState(false);
@@ -107,10 +107,10 @@ export default function ResultScreen() {
   const secondary = house.colors.secondary;
 
   const steps = [
-    { key: "portrait" as const, label: "巫师肖像", icon: Camera },
+    { key: "report" as const, label: "评估报告", icon: Scroll },
     { key: "badge" as const, label: "专属徽章", icon: Shield },
     { key: "wand" as const, label: "魔杖", icon: Wand2 },
-    { key: "report" as const, label: "评估报告", icon: Scroll },
+    { key: "portrait" as const, label: "巫师肖像", icon: Camera },
   ];
   const currentStepIndex = steps.findIndex((s) => s.key === step);
 
