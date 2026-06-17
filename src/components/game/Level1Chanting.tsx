@@ -28,6 +28,7 @@ export default function Level1Chanting() {
   // --- Refs for mutable values accessed inside callbacks ---
   const currentSpellIndexRef = useRef(0);
   const spellResultsRef = useRef<SpellResult[]>([]);
+  const phaseRef = useRef<Phase>(phase);
 
   // --- Refs for hardware / browser APIs ---
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -40,6 +41,7 @@ export default function Level1Chanting() {
   const micReadyRef = useRef(false);
   const completeLevel1Ref = useRef(completeLevel1);
   completeLevel1Ref.current = completeLevel1;
+  const autoSubmittedRef = useRef(false); // 防止自动提交后重复触发
 
   // Track whether component is mounted
   const mountedRef = useRef(true);
@@ -47,6 +49,11 @@ export default function Level1Chanting() {
     mountedRef.current = true;
     return () => { mountedRef.current = false; };
   }, []);
+
+  // Keep phaseRef in sync with phase state
+  useEffect(() => {
+    phaseRef.current = phase;
+  }, [phase]);
 
   const currentSpell = spells[currentSpellIndex];
 
@@ -135,6 +142,7 @@ export default function Level1Chanting() {
 
   // ---- Finish current spell and advance ----
   const doFinishCurrentSpell = useCallback(() => {
+    autoSubmittedRef.current = false; // 重置自动提交标记
     stopSpellMedia();
 
     // Read latest values from refs
@@ -207,6 +215,7 @@ export default function Level1Chanting() {
     // Reset per-spell state
     transcriptRef.current = '';
     volumeSamplesRef.current = [];
+    autoSubmittedRef.current = false;
     setVolumeHistory([]);
     setTranscript('');
     setTimeLeft(TIME_PER_SPELL);
@@ -224,7 +233,6 @@ export default function Level1Chanting() {
       recognition.onresult = (event: SpeechRecognitionEvent) => {
         let text = '';
         for (let i = event.resultIndex; i < event.results.length; i++) {
-          // 尝试多个候选结果，取最佳匹配
           const result = event.results[i];
           if (result.length > 0) {
             text += result[0].transcript;
@@ -232,6 +240,26 @@ export default function Level1Chanting() {
         }
         transcriptRef.current = text;
         setTranscript(text);
+
+        // 自动提交逻辑：当一句话说完(isFinal)且文本较短且与咒语匹配度较高时
+        if (!autoSubmittedRef.current && event.results[event.results.length - 1]?.isFinal) {
+          const spokenText = text.trim();
+          const spell = spells[currentSpellIndexRef.current];
+          // 短文本(<=10字)才判定，避免长句子误触发
+          if (spokenText.length > 0 && spokenText.length <= 10) {
+            const accuracy = matchSpell(spokenText, spell.nameCn, spell.aliases);
+            if (accuracy >= 40) {
+              autoSubmittedRef.current = true;
+              // 短暂延迟让用户看到识别结果，然后自动提交
+              setMatchDetail(accuracy >= 70 ? '匹配成功! 自动进入下一咒语...' : '基本匹配，自动继续...');
+              setTimeout(() => {
+                if (phaseRef.current === 'listening') {
+                  doFinishCurrentSpell();
+                }
+              }, 800);
+            }
+          }
+        }
       };
 
       recognition.onerror = () => { /* continue */ };
