@@ -5,7 +5,7 @@ import { useGame } from './GameProvider';
 import { HOUSES, type HouseName, type SortingResult } from '@/lib/sorting-hat';
 import type { SpellCategory } from '@/lib/spells';
 
-type Phase = 'photo' | 'generating' | 'revealing' | 'done';
+type Phase = 'photo' | 'revealing' | 'done';
 
 const CATEGORY_COLORS: Record<SpellCategory, string> = {
   defense: '#3b82f6',
@@ -51,7 +51,7 @@ export default function ResultScreen() {
       } catch (err) {
         console.error('Camera denied for photo:', err);
         setPhotoDataUrl('');
-        setPhase('generating');
+        setPhase('revealing');
         generateImage(null);
       }
     };
@@ -84,7 +84,7 @@ export default function ResultScreen() {
     streamRef.current?.getTracks().forEach(t => t.stop());
     streamRef.current = null;
 
-    setPhase('generating');
+    setPhase('revealing');
     generateImage(dataUrl);
   }, []);
 
@@ -113,8 +113,6 @@ export default function ResultScreen() {
     } catch (err) {
       console.error('Image generation failed:', err);
     }
-
-    setPhase('revealing');
   };
 
   // Reveal animation
@@ -125,7 +123,7 @@ export default function ResultScreen() {
     if (revealCharIndex < houseName.length) {
       const timer = setTimeout(() => {
         setRevealCharIndex(prev => prev + 1);
-      }, 300);
+      }, 200);
       return () => clearTimeout(timer);
     } else {
       const timer = setTimeout(() => {
@@ -192,7 +190,7 @@ export default function ResultScreen() {
           <button
             onClick={() => {
               setPhotoDataUrl('');
-              setPhase('generating');
+              setPhase('revealing');
               generateImage(null);
             }}
             className="mt-3 px-4 py-2 text-sm cursor-pointer"
@@ -200,22 +198,6 @@ export default function ResultScreen() {
           >
             跳过拍照
           </button>
-        </div>
-      )}
-
-      {/* Generating phase */}
-      {phase === 'generating' && (
-        <div className="flex flex-col items-center gap-4">
-          <div className="text-6xl" style={{ animation: 'hatWobble 2s ease-in-out infinite' }}>🎩</div>
-          <p className="text-xl" style={{ color: '#c9a84c', textShadow: '0 0 10px rgba(201, 168, 76, 0.4)' }}>
-            分院帽正在深思熟虑...
-          </p>
-          <div className="flex gap-2">
-            <div className="w-2 h-2 rounded-full animate-bounce" style={{ backgroundColor: '#740001', animationDelay: '0ms' }} />
-            <div className="w-2 h-2 rounded-full animate-bounce" style={{ backgroundColor: '#1a472a', animationDelay: '150ms' }} />
-            <div className="w-2 h-2 rounded-full animate-bounce" style={{ backgroundColor: '#0e1a40', animationDelay: '300ms' }} />
-            <div className="w-2 h-2 rounded-full animate-bounce" style={{ backgroundColor: '#ecb939', animationDelay: '450ms' }} />
-          </div>
         </div>
       )}
 
@@ -365,6 +347,21 @@ export default function ResultScreen() {
                   />
                   <p className="text-xs py-2" style={{ color: '#9ca3af', backgroundColor: 'rgba(15,15,30,0.8)' }}>
                     AI 生成的学院巫师肖像
+                  </p>
+                </div>
+              )}
+
+              {/* AI portrait loading indicator */}
+              {!generatedImageUrl && photoDataUrl !== '' && (
+                <div
+                  className="w-full px-4 py-3 rounded-xl mb-2 text-center"
+                  style={{
+                    background: 'rgba(15, 15, 30, 0.6)',
+                    border: `1px dashed ${house.colors.secondary}40`,
+                  }}
+                >
+                  <p className="text-sm" style={{ color: '#9ca3af' }}>
+                    🎨 学院肖像正在绘制中...
                   </p>
                 </div>
               )}
