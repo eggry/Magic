@@ -155,7 +155,7 @@ function ReportStep({
               <p className="mb-2 text-lg font-bold" style={{ color: "#c9a84c" }}>性格特质</p>
               <div className="flex flex-wrap gap-2">
                 {house.traits.map((t) => (
-                  <span key={t} className="rounded-full px-4 py-1 text-base font-bold" style={{ background: colors.primary, color: "#fff" }}>
+                  <span key={t} className="rounded-full px-4 py-1 text-base font-bold" style={{ background: "#c9a84c", color: "#0a0e1a" }}>
                     {t}
                   </span>
                 ))}
@@ -165,9 +165,9 @@ function ReportStep({
             <div className="rounded-lg border p-4" style={{ borderColor: "rgba(201,168,76,0.2)", background: "rgba(15,15,30,0.5)" }}>
               <p className="mb-2 text-lg font-bold" style={{ color: "#c9a84c" }}>学院信息</p>
               <div className="flex flex-wrap gap-3 text-base" style={{ color: "#e8dcc8" }}>
-                <span className="flex items-center gap-2"><Sparkles className="h-4 w-4" style={{ color: colors.secondary }} /> {house.motto}</span>
-                <span className="flex items-center gap-2"><Star className="h-4 w-4" style={{ color: colors.secondary }} /> {house.mascot}</span>
-                <span className="flex items-center gap-2"><ScrollText className="h-4 w-4" style={{ color: colors.secondary }} /> {house.nameEn}</span>
+                <span className="flex items-center gap-2"><Sparkles className="h-4 w-4" style={{ color: "#d4a017" }} /> {house.motto}</span>
+                <span className="flex items-center gap-2"><Star className="h-4 w-4" style={{ color: "#d4a017" }} /> {house.mascot}</span>
+                <span className="flex items-center gap-2"><ScrollText className="h-4 w-4" style={{ color: "#d4a017" }} /> {house.nameEn}</span>
               </div>
             </div>
           </div>
@@ -178,30 +178,30 @@ function ReportStep({
 
             <div className="rounded-lg border p-4" style={{ borderColor: "rgba(201,168,76,0.2)", background: "rgba(15,15,30,0.5)" }}>
               <div className="mb-2 flex items-center gap-2">
-                <Wand2 className="h-5 w-5" style={{ color: colors.primary }} />
+                <Wand2 className="h-5 w-5" style={{ color: "#c9a84c" }} />
                 <span className="text-xl font-bold" style={{ color: "#e8dcc8" }}>念咒考核</span>
               </div>
               <div className="space-y-2">
-                <ScoreBar label="准确度" value={accuracy} max={100} color={colors.primary} icon={<Star className="h-4 w-4" />} />
-                <ScoreBar label="气势" value={power} max={100} color={colors.secondary} icon={<Sparkles className="h-4 w-4" />} />
+                <ScoreBar label="准确度" value={accuracy} max={100} color="#c9a84c" icon={<Star className="h-4 w-4" />} />
+                <ScoreBar label="气势" value={power} max={100} color="#d4a017" icon={<Sparkles className="h-4 w-4" />} />
               </div>
             </div>
 
             <div className="rounded-lg border p-4" style={{ borderColor: "rgba(201,168,76,0.2)", background: "rgba(15,15,30,0.5)" }}>
               <div className="mb-2 flex items-center gap-2">
-                <Shield className="h-5 w-5" style={{ color: colors.primary }} />
+                <Shield className="h-5 w-5" style={{ color: "#c9a84c" }} />
                 <span className="text-xl font-bold" style={{ color: "#e8dcc8" }}>画符考核</span>
               </div>
               <div className="space-y-2">
-                <ScoreBar label="完成度" value={score} max={100} color={colors.primary} icon={<Star className="h-4 w-4" />} />
-                <ScoreBar label="精准度" value={precision} max={100} color={colors.secondary} icon={<Sparkles className="h-4 w-4" />} />
+                <ScoreBar label="完成度" value={score} max={100} color="#c9a84c" icon={<Star className="h-4 w-4" />} />
+                <ScoreBar label="精准度" value={precision} max={100} color="#d4a017" icon={<Sparkles className="h-4 w-4" />} />
               </div>
             </div>
 
             {/* 总分 */}
-            <div className="mt-auto rounded-xl p-4 text-center" style={{ background: `linear-gradient(135deg, ${colors.primary}22, ${colors.secondary}22)`, border: `2px solid ${colors.primary}` }}>
+            <div className="mt-auto rounded-xl p-4 text-center" style={{ background: "linear-gradient(135deg, rgba(201,168,76,0.13), rgba(212,160,23,0.13))", border: "2px solid #c9a84c" }}>
               <p className="text-lg font-bold" style={{ color: "#c9a84c" }}>综合评分</p>
-              <p className="mt-1 text-5xl font-black" style={{ color: "#c9a84c", textShadow: `0 0 15px ${colors.glow}` }}>
+              <p className="mt-1 text-5xl font-black text-embossed-gold-lg">
                 {total}
               </p>
               <p className="text-base" style={{ color: "#9ca3af" }}>分</p>

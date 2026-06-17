@@ -14,13 +14,7 @@ interface Point {
   t: number;
 }
 
-interface Sparkle {
-  x: number;
-  y: number;
-  life: number;
-  maxLife: number;
-  size: number;
-}
+
 
 export default function Level2Casting() {
   const { completeLevel2 } = useGame();
@@ -42,8 +36,7 @@ export default function Level2Casting() {
   const phaseRef = useRef<Phase>('intro');
   const cameraReadyRef = useRef(false);
   const animFrameRef = useRef<number>(0);
-  const sparklesRef = useRef<Sparkle[]>([]);
-  const trailGlowRef = useRef<number>(0);
+
 
   const patternRef = useRef<MagicPattern | null>(null);
   const patternPointsRef = useRef<{ x: number; y: number }[]>([]);
@@ -61,12 +54,21 @@ export default function Level2Casting() {
   const drawPattern = useCallback((ctx: CanvasRenderingContext2D, w: number, h: number, alpha: number = 0.6) => {
     const pts = patternPointsRef.current;
     const lines = patternLinesRef.current;
+
+    // Occasional pulse glow on the target pattern (time-based)
+    const t = Date.now() / 1000;
+    const pulse = 0.5 + 0.5 * Math.sin(t * 2.5); // slow breathing glow
+    const glowIntensity = 0.3 + pulse * 0.7; // 0.3 ~ 1.0
+
     ctx.save();
-    ctx.strokeStyle = `rgba(201, 168, 76, ${alpha})`;
-    ctx.lineWidth = 3;
-    ctx.setLineDash([8, 6]);
-    ctx.shadowColor = 'rgba(201, 168, 76, 0.5)';
-    ctx.shadowBlur = 10;
+
+    // Outer glow layer (pulsing)
+    ctx.strokeStyle = `rgba(201, 168, 76, ${alpha * glowIntensity * 0.4})`;
+    ctx.lineWidth = 10;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.shadowColor = `rgba(201, 168, 76, ${glowIntensity * 0.6})`;
+    ctx.shadowBlur = 20 + pulse * 15;
     for (const line of lines) {
       const from = pts[line.from];
       const to = pts[line.to];
@@ -75,13 +77,39 @@ export default function Level2Casting() {
       ctx.lineTo(to.x * w, to.y * h);
       ctx.stroke();
     }
+
+    // Main dashed line
+    ctx.strokeStyle = `rgba(201, 168, 76, ${alpha * (0.7 + pulse * 0.3)})`;
+    ctx.lineWidth = 3;
+    ctx.setLineDash([8, 6]);
+    ctx.shadowColor = 'rgba(201, 168, 76, 0.4)';
+    ctx.shadowBlur = 8;
+    for (const line of lines) {
+      const from = pts[line.from];
+      const to = pts[line.to];
+      ctx.beginPath();
+      ctx.moveTo(from.x * w, from.y * h);
+      ctx.lineTo(to.x * w, to.y * h);
+      ctx.stroke();
+    }
+
+    // Glow nodes at vertices
     ctx.setLineDash([]);
-    ctx.fillStyle = `rgba(201, 168, 76, ${alpha})`;
+    ctx.fillStyle = `rgba(201, 168, 76, ${alpha * (0.6 + pulse * 0.4)})`;
     for (const pt of pts) {
       ctx.beginPath();
       ctx.arc(pt.x * w, pt.y * h, 5, 0, Math.PI * 2);
       ctx.fill();
     }
+
+    // Bright inner dot at vertices (pulsing)
+    ctx.fillStyle = `rgba(255, 235, 160, ${alpha * (0.4 + pulse * 0.4)})`;
+    for (const pt of pts) {
+      ctx.beginPath();
+      ctx.arc(pt.x * w, pt.y * h, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
     ctx.restore();
   }, []);
 
@@ -190,115 +218,11 @@ export default function Level2Casting() {
         if (!lastPointRef.current || Math.abs(np.x - lastPointRef.current.x) > 0.005 || Math.abs(np.y - lastPointRef.current.y) > 0.005) {
           pointsRef.current.push(np);
           lastPointRef.current = np;
-          emitSparkle(np.x, np.y);
         }
       }
     } catch { /* ignore */ }
   }, []);
 
-  const drawTrail = useCallback((ctx: CanvasRenderingContext2D, w: number, h: number) => {
-    const pts = pointsRef.current;
-    if (pts.length < 2) return;
-
-    // Build screen-space path
-    const screenPts = pts.map(p => ({ x: p.x * w, y: p.y * h }));
-
-    // 1. Outer glow (wide, soft)
-    ctx.save();
-    ctx.beginPath();
-    ctx.moveTo(screenPts[0].x, screenPts[0].y);
-    for (let i = 1; i < screenPts.length; i++) {
-      ctx.lineTo(screenPts[i].x, screenPts[i].y);
-    }
-    ctx.strokeStyle = 'rgba(201, 168, 76, 0.15)';
-    ctx.lineWidth = 16;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.shadowColor = 'rgba(201, 168, 76, 0.4)';
-    ctx.shadowBlur = 25;
-    ctx.stroke();
-    ctx.restore();
-
-    // 2. Middle glow
-    ctx.save();
-    ctx.beginPath();
-    ctx.moveTo(screenPts[0].x, screenPts[0].y);
-    for (let i = 1; i < screenPts.length; i++) {
-      ctx.lineTo(screenPts[i].x, screenPts[i].y);
-    }
-    ctx.strokeStyle = 'rgba(212, 180, 80, 0.35)';
-    ctx.lineWidth = 8;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.shadowColor = 'rgba(212, 180, 80, 0.5)';
-    ctx.shadowBlur = 12;
-    ctx.stroke();
-    ctx.restore();
-
-    // 3. Core bright line with gradient
-    ctx.save();
-    const grad = ctx.createLinearGradient(screenPts[0].x, screenPts[0].y, screenPts[screenPts.length - 1].x, screenPts[screenPts.length - 1].y);
-    grad.addColorStop(0, 'rgba(201, 168, 76, 0.6)');
-    grad.addColorStop(0.5, 'rgba(240, 216, 120, 0.9)');
-    grad.addColorStop(1, 'rgba(255, 235, 160, 1)');
-    ctx.beginPath();
-    ctx.moveTo(screenPts[0].x, screenPts[0].y);
-    for (let i = 1; i < screenPts.length; i++) {
-      ctx.lineTo(screenPts[i].x, screenPts[i].y);
-    }
-    ctx.strokeStyle = grad;
-    ctx.lineWidth = 3;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.stroke();
-    ctx.restore();
-
-    // 4. Pulsating tip glow at the last point
-    const last = screenPts[screenPts.length - 1];
-    const pulse = 0.7 + 0.3 * Math.sin(Date.now() / 150);
-    ctx.save();
-    ctx.beginPath();
-    ctx.arc(last.x, last.y, 10 * pulse, 0, Math.PI * 2);
-    ctx.fillStyle = `rgba(255, 235, 160, ${0.25 * pulse})`;
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(last.x, last.y, 5 * pulse, 0, Math.PI * 2);
-    ctx.fillStyle = `rgba(255, 245, 200, ${0.6 * pulse})`;
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(last.x, last.y, 2, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-    ctx.fill();
-    ctx.restore();
-
-    // 5. Sparkle particles along the trail
-    const sparkles = sparklesRef.current;
-    for (let i = sparkles.length - 1; i >= 0; i--) {
-      const s = sparkles[i];
-      s.life -= 1;
-      if (s.life <= 0) { sparkles.splice(i, 1); continue; }
-      const alpha = s.life / s.maxLife;
-      const size = s.size * alpha;
-      ctx.save();
-      ctx.beginPath();
-      ctx.arc(s.x * w, s.y * h, size, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(255, 235, 160, ${alpha * 0.8})`;
-      ctx.shadowColor = 'rgba(201, 168, 76, 0.8)';
-      ctx.shadowBlur = 8;
-      ctx.fill();
-      ctx.restore();
-    }
-  }, []);
-
-  const emitSparkle = useCallback((x: number, y: number) => {
-    if (Math.random() > 0.3) return; // 70% chance to emit
-    sparklesRef.current.push({
-      x, y,
-      life: 20 + Math.random() * 20,
-      maxLife: 40,
-      size: 1 + Math.random() * 2,
-    });
-  }, []);
 
   const startOverlayLoop = useCallback(() => {
     const render = () => {
@@ -311,13 +235,12 @@ export default function Level2Casting() {
         if (ctx) {
           ctx.clearRect(0, 0, w, h);
           drawPattern(ctx, w, h, 0.6);
-          drawTrail(ctx, w, h);
         }
       }
       animFrameRef.current = requestAnimationFrame(render);
     };
     animFrameRef.current = requestAnimationFrame(render);
-  }, [detectBrightPoint, drawPattern, drawTrail]);
+  }, [detectBrightPoint, drawPattern]);
 
   useEffect(() => {
     if (phase !== 'countdown') return;
@@ -364,14 +287,14 @@ export default function Level2Casting() {
     if (phaseRef.current !== 'drawing') return;
     setIsPointerDown(true);
     const pt = getCanvasPoint(clientX, clientY);
-    if (pt) { pointsRef.current = [pt]; lastPointRef.current = pt; emitSparkle(pt.x, pt.y); }
-  }, [getCanvasPoint, emitSparkle]);
+    if (pt) { pointsRef.current = [pt]; lastPointRef.current = pt; }
+  }, [getCanvasPoint]);
 
   const handlePointerMove = useCallback((clientX: number, clientY: number) => {
     if (!isPointerDown || phaseRef.current !== 'drawing') return;
     const pt = getCanvasPoint(clientX, clientY);
-    if (pt) { pointsRef.current.push(pt); lastPointRef.current = pt; emitSparkle(pt.x, pt.y); }
-  }, [isPointerDown, getCanvasPoint, emitSparkle]);
+    if (pt) { pointsRef.current.push(pt); lastPointRef.current = pt; }
+  }, [isPointerDown, getCanvasPoint]);
 
   const handlePointerUp = useCallback(() => { setIsPointerDown(false); }, []);
 

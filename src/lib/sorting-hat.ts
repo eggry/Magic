@@ -86,6 +86,11 @@ export interface SortingResult extends House {
 export function sortIntoHouse(input: SortingInput): SortingResult {
   const { chantAccuracy, chantPower, darkAffinity, lightAffinity, patternScore, patternPrecision, bestSpellCategory } = input;
 
+  // Random base bias: each session one house gets a slight predisposition
+  const houseNames: HouseName[] = ['gryffindor', 'slytherin', 'ravenclaw', 'hufflepuff'];
+  const biasHouse = houseNames[Math.floor(Math.random() * houseNames.length)];
+  const biasAmount = 5 + Math.random() * 8; // 5 ~ 13 random bonus
+
   // Category bonus: +12 if user's best spell category matches house specialty
   const catBonus: Record<string, number> = {
     combat: 12, dark: 12, utility: 12, defense: 12,
@@ -106,7 +111,7 @@ export function sortIntoHouse(input: SortingInput): SortingResult {
       patternScore * 0.20 +
       patternPrecision * 0.10 +
       Math.min(darkAffinity, 20) * 0.10
-    ) + categoryBonus.gryffindor,
+    ) + categoryBonus.gryffindor + (biasHouse === 'gryffindor' ? biasAmount : 0),
 
     // Slytherin: dark affinity + ambition + accuracy
     slytherin: (
@@ -115,7 +120,7 @@ export function sortIntoHouse(input: SortingInput): SortingResult {
       chantAccuracy * 0.15 +
       patternPrecision * 0.15 +
       patternScore * 0.10
-    ) + categoryBonus.slytherin,
+    ) + categoryBonus.slytherin + (biasHouse === 'slytherin' ? biasAmount : 0),
 
     // Ravenclaw: wisdom + knowledge spells + balanced performance
     ravenclaw: (
@@ -124,14 +129,14 @@ export function sortIntoHouse(input: SortingInput): SortingResult {
       lightAffinity * 0.25 +
       patternScore * 0.20 +
       chantPower * 0.15
-    ) + categoryBonus.ravenclaw,
+    ) + categoryBonus.ravenclaw + (biasHouse === 'ravenclaw' ? biasAmount : 0),
 
     // Hufflepuff: hard work + loyalty + balanced + not extreme
     hufflepuff: (
       (chantAccuracy + chantPower + patternScore + patternPrecision) / 4 * 0.45 +
       lightAffinity * 0.25 +
       patternScore * 0.30
-    ) + categoryBonus.hufflepuff,
+    ) + categoryBonus.hufflepuff + (biasHouse === 'hufflepuff' ? biasAmount : 0),
   };
 
   // Add small random factor (±5)
