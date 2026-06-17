@@ -3,6 +3,46 @@ import { ImageGenerationClient, Config, HeaderUtils } from 'coze-coding-dev-sdk'
 import { S3Storage } from 'coze-coding-dev-sdk';
 import { HOUSES, type HouseName } from '@/lib/sorting-hat';
 
+const SCENE_PROMPTS: Record<string, string> = {
+  gryffindor: `Transform the user into the heroic main character of a Gryffindor-inspired magical school scene. The user is wearing a black wizard robe with deep crimson lining, gold details, a red-and-gold tie, and a lion-inspired house crest. The outfit should look premium, cinematic, and tailored.
+
+Scene: a vast gothic castle courtyard at night, surrounded by towering stone walls, burning torches, flying banners, and a stormy sky. The user stands in the center as the clear protagonist, holding a wand forward in a powerful dueling stance. A huge golden-red fire spell bursts from the wand, forming a roaring lion-shaped flame in the air. Sparks, embers, and magical shockwaves fly across the scene.
+
+The mood is brave, intense, and triumphant. The user's face is sharply lit by warm firelight, confident and fearless. Use a low-angle heroic camera, cinematic composition, dramatic depth of field, volumetric lighting, flying cloak, motion blur on sparks, ultra-detailed fantasy realism, blockbuster movie poster quality.
+
+Avoid cartoon style, avoid childish look, avoid crowded background, avoid extra main characters, avoid distorted hands, avoid changing the user's face.`,
+
+  slytherin: `Transform the user into the main character of a Slytherin-inspired magical school scene. The user is wearing a black wizard robe with emerald green lining, silver details, a green-and-silver tie, and a serpent-inspired house crest. The outfit should look elegant, powerful, and slightly mysterious.
+
+Scene: a massive underground stone chamber beneath an ancient magical castle, with dark water reflecting green light, towering serpent statues, carved pillars, mist, and glowing runes on the floor. The user stands alone at the center of the chamber as the clear protagonist, calm and dominant, holding a wand downward toward the glowing runes. A gigantic translucent emerald serpent made of magical energy rises behind the user, coiling through the air like a summoned guardian.
+
+The mood is cold, ambitious, dangerous, and majestic. The user's face is illuminated by green magical light, with a controlled, confident expression. Use a dramatic low-angle camera, strong silhouette, cinematic contrast, volumetric fog, reflections on wet stone, swirling green energy, luxury dark fantasy style, ultra-realistic movie poster quality.
+
+Avoid evil caricature, avoid horror gore, avoid crowded scene, avoid extra people, avoid making the serpent cover the user's face, avoid changing the user's identity.`,
+
+  ravenclaw: `Transform the user into the main character of a Ravenclaw-inspired magical school scene. The user is wearing a black wizard robe with deep royal blue lining, bronze or silver details, a blue tie, and an eagle-inspired house crest. The outfit should look refined, intellectual, and elegant.
+
+Scene: the highest astronomy tower of a grand magical castle, open to the night sky. The user stands at the center of a circular stone observatory, surrounded by floating books, glowing star maps, ancient brass instruments, and a huge rotating magical astrolabe. The sky above is filled with constellations, galaxies, and blue magical light. The user raises one hand and uses a wand to draw glowing constellations in the air, as if controlling the movement of stars.
+
+The user must be the visual focus, sharply lit by moonlight and blue magic. The pose is calm but powerful, intelligent and commanding. Use wide cinematic framing with strong depth, heroic three-quarter angle, flowing robe, floating pages, sparkling star dust, elegant blue lighting, ultra-detailed fantasy realism, epic movie poster quality.
+
+Avoid library-only small scenes, avoid passive standing pose, avoid clutter covering the face, avoid extra main characters, avoid changing the user's facial identity.`,
+
+  hufflepuff: `Transform the user into the main character of a Hufflepuff-inspired magical school scene. The user is wearing a black wizard robe with warm yellow lining, black-and-gold details, a yellow-and-black tie, and a badger-inspired house crest. The outfit should look warm, premium, and heroic rather than childish.
+
+Scene: a vast enchanted greenhouse inside a magical castle, with an enormous ancient tree growing through the glass ceiling, its branches reaching into starlight. Bioluminescent flowers and magical plants fill the space. The user stands at the center as the clear protagonist, both hands on a wand pointed at the ground, casting a life-giving spell. A colossal golden badger spirit made of warm light erupts from the earth, vines and flowers bloom in its wake. The greenhouse explodes with life — giant sunflowers, glowing mushrooms, healing herbs all growing at supernatural speed.
+
+The mood is warm, powerful, protective, and full of life. The user's face is lit by golden magical light, expression determined and compassionate. Use a heroic camera angle, cinematic warm lighting, god rays through glass, floating pollen and petals, volumetric golden glow, epic depth, ultra-detailed fantasy realism, blockbuster movie poster quality.
+
+Avoid cute childish style, avoid passive farming scene, avoid small cramped space, avoid extra main characters, avoid making the badger cover the user's face, avoid changing the user's identity.`,
+};
+
+const FACE_PRESERVE_PREFIX = `Use the uploaded user portrait as the identity reference. Preserve the user's facial features, face shape, hairstyle, expression identity, and natural skin texture. `;
+
+const CHARACTER_FOCUS = `The character must be the clear visual focus: centered composition, heroic camera angle, sharp face, dramatic lighting on the face, full upper body or full body visible, strong pose, no other person competing for attention. `;
+
+const SCENE_ATMOSPHERE = `Create a large-scale fantasy scene with epic depth, magical atmosphere, dynamic motion, and a sense that the user is doing something amazing. `;
+
 export async function POST(request: NextRequest) {
   try {
     const { house, photoBase64 } = await request.json() as { house: HouseName; photoBase64?: string };
@@ -37,19 +77,12 @@ export async function POST(request: NextRequest) {
           expireTime: 3600,
         });
 
-        // Generate wizard portrait with img2img - keep face from reference, blend into wizarding world
+        // Generate wizard portrait with img2img
         const client = new ImageGenerationClient(config, customHeaders);
-        const facePrompt = `Keep the person's face, expression and facial features from the reference photo exactly — same person, same identity. Transform this person into a Hogwarts wizard in the Harry Potter universe. `;
-
-        const scenePrompts: Record<string, string> = {
-          gryffindor: `Wearing crimson and gold Gryffindor wizard robes with lion crest, striped scarf, pointed hat. Riding a Hungarian Horntail dragon through lightning storm above Hogwarts Castle. Silver stag Patronus blazing from wand tip, charging through Dementors. Gryffindor sword at hip. Thunderous sky, golden sparks, phoenix feathers swirling. Floating candles, magical aura.`,
-          slytherin: `Wearing emerald and silver Slytherin wizard robes with serpent crest, silver tie, dark velvet cloak. Standing in the Chamber of Secrets, Basilisk coiling behind. Green Dark magic crackling from yew wand, shattering serpentine pillars. Slytherin locket glowing. Black Lake water crashing through ceiling. Parseltongue runes on walls, silver-green serpentine magic.`,
-          ravenclaw: `Wearing blue and bronze Ravenclaw wizard robes with eagle crest, Ravenclaw diadem, wand raised. Floating above Ravenclaw Tower, surrounded by enchanted books and golden runes. Spectral eagle Patronus soaring through constellations. Luminous rune portals, cascading blue-bronze magical particles, library with flying books below.`,
-          hufflepuff: `Wearing yellow and black Hufflepuff wizard robes with badger crest, dragon-hide gloves, wand blazing. Standing firm at the Battle of Hogwarts, colossal golden badger Patronus erupting from earth. Shield Charms deflecting Killing Curses. Hufflepuff cup glowing, Mandrakes screaming, Devil's Snare entangling Death Eaters. Sunlight breaking through war clouds.`,
-        };
+        const scenePrompt = SCENE_PROMPTS[house] || SCENE_PROMPTS.gryffindor;
 
         const response = await client.generate({
-          prompt: `${facePrompt}${scenePrompts[house] || scenePrompts.gryffindor} Harry Potter cinematic style, oil painting meets hyperrealism, dramatic chiaroscuro lighting, volumetric god rays, magical particle effects, spell sparks, potion steam, 4K ultra-detailed, film grain, IMAX composition, masterpiece`,
+          prompt: `${FACE_PRESERVE_PREFIX}${CHARACTER_FOCUS}${SCENE_ATMOSPHERE}${scenePrompt}`,
           image: photoUrl,
           size: '4K',
         });
@@ -67,16 +100,10 @@ export async function POST(request: NextRequest) {
     if (!imageUrl) {
       try {
         const client = new ImageGenerationClient(config, customHeaders);
-
-        const fallbackPrompts: Record<string, string> = {
-          gryffindor: `A brave Hogwarts wizard wearing crimson and gold Gryffindor robes with lion crest, riding a Hungarian Horntail dragon through lightning above Hogwarts Castle. Silver stag Patronus blazing from wand, charging through Dementors. Thunderous sky, golden sparks, phoenix feathers. Floating candles.`,
-          slytherin: `A cunning Hogwarts wizard wearing emerald and silver Slytherin robes with serpent crest, in the Chamber of Secrets. Basilisk coiling behind, green Dark magic crackling from wand. Slytherin locket glowing, Parseltongue runes, serpentine magic swirling.`,
-          ravenclaw: `A wise Hogwarts wizard wearing blue and bronze Ravenclaw robes with eagle crest, floating above Ravenclaw Tower. Enchanted books and golden runes swirling. Eagle Patronus soaring through constellations, luminous rune portals, cascading magical particles.`,
-          hufflepuff: `A loyal Hogwarts wizard wearing yellow and black Hufflepuff robes with badger crest, at the Battle of Hogwarts. Colossal golden badger Patronus erupting, Shield Charms deflecting Killing Curses. Sunlight breaking through war clouds, steadfast guardian.`,
-        };
+        const scenePrompt = SCENE_PROMPTS[house] || SCENE_PROMPTS.gryffindor;
 
         const response = await client.generate({
-          prompt: `${fallbackPrompts[house] || fallbackPrompts.gryffindor} Harry Potter cinematic style, oil painting meets hyperrealism, dramatic chiaroscuro lighting, volumetric god rays, magical particle effects, 4K ultra-detailed, IMAX composition, masterpiece`,
+          prompt: `${CHARACTER_FOCUS}${SCENE_ATMOSPHERE}${scenePrompt}`,
           size: '4K',
         });
 
