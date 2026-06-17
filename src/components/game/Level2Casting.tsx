@@ -141,6 +141,19 @@ export default function Level2Casting() {
     };
   }, []);
 
+  // Auto-start on mount
+  const hasAutoStartedRef = useRef(false);
+  useEffect(() => {
+    if (phase === 'intro' && !hasAutoStartedRef.current) {
+      hasAutoStartedRef.current = true;
+      (async () => {
+        await startCamera();
+        setPhase('countdown');
+        setCountdown(3);
+      })();
+    }
+  }, [phase, startCamera]);
+
   const detectBrightPoint = useCallback(() => {
     if (phaseRef.current !== 'drawing' || !cameraReadyRef.current) return;
     const video = videoRef.current;
@@ -291,25 +304,7 @@ export default function Level2Casting() {
       {/* ===== ALWAYS render video (WebRTC rule) ===== */}
       <video ref={videoRef} autoPlay playsInline muted className="hidden" />
 
-      {/* ===== Intro ===== */}
-      {phase === 'intro' && (
-        <div className="flex flex-col items-center justify-center min-h-screen px-6 text-center">
-          <div className="text-6xl mb-6" style={{ animation: 'hatWobble 2s ease-in-out infinite' }}>🎩</div>
-          <h2 className="text-3xl font-bold mb-4" style={{ color: '#c9a84c', fontFamily: "'Cinzel', serif", textShadow: '0 0 10px rgba(201,168,76,0.4)' }}>
-            施咒考验
-          </h2>
-          <p className="mb-3 text-base" style={{ color: '#e8dcc8' }}>分院帽要考验你的施咒能力</p>
-          <p className="mb-2 text-sm" style={{ color: '#9ca3af' }}>屏幕上会出现一个魔法符文，用你的魔杖沿着虚线描绘</p>
-          <p className="mb-6 text-sm" style={{ color: '#9ca3af' }}>💡 打开手机手电筒对着摄像头，或用鼠标/手指绘制</p>
-          <button
-            onClick={async () => { await startCamera(); setPhase('countdown'); setCountdown(3); }}
-            className="px-8 py-3 rounded-lg text-lg font-bold tracking-wider cursor-pointer"
-            style={{ fontFamily: "'Cinzel', serif", color: '#0a0e1a', background: 'linear-gradient(135deg, #c9a84c, #d4a017, #c9a84c)', boxShadow: '0 0 20px rgba(201,168,76,0.4)' }}
-          >
-            开始施咒
-          </button>
-        </div>
-      )}
+      {/* ===== Intro: auto-starts via useEffect ===== */}
 
       {/* ===== Countdown ===== */}
       {phase === 'countdown' && (

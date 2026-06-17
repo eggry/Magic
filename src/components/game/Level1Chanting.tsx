@@ -384,6 +384,27 @@ export default function Level1Chanting() {
     };
   }, [allDone, spellResults]);
 
+  // Auto-start first spell on mount
+  const hasAutoStartedRef = useRef(false);
+  useEffect(() => {
+    if (phase === 'ready' && !hasAutoStartedRef.current) {
+      hasAutoStartedRef.current = true;
+      handleStart();
+    }
+  }, [phase, handleStart]);
+
+  // Auto-proceed to next level when done
+  const hasAutoCompletedRef = useRef(false);
+  useEffect(() => {
+    if (phase === 'done' && finalResult && !hasAutoCompletedRef.current) {
+      hasAutoCompletedRef.current = true;
+      const timer = setTimeout(() => {
+        completeLevel1Ref.current(finalResult);
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [phase, finalResult]);
+
   // ---- Cleanup on unmount ----
   useEffect(() => {
     return () => { cleanupMedia(); };
@@ -627,147 +648,20 @@ export default function Level1Chanting() {
       )}
 
       {/* Start button */}
-      {phase === 'ready' && (
-        <div className="flex flex-col items-center gap-3">
-          <p className="text-sm" style={{ color: '#9ca3af' }}>
-            分院帽将依次赐予你 {spells.length} 个咒语，用中文大声念出来
-          </p>
-          <p className="text-xs" style={{ color: '#9ca3af' }}>
-            每个限时 {TIME_PER_SPELL} 秒 · 同音字也能识别
-          </p>
-          <button
-            onClick={handleStart}
-            className="px-8 py-3 rounded-lg text-lg font-bold tracking-wider transition-all duration-300 cursor-pointer"
-            style={{
-              fontFamily: "'Cinzel', serif",
-              color: '#0a0e1a',
-              background: 'linear-gradient(135deg, #c9a84c, #d4a017, #c9a84c)',
-              boxShadow: '0 0 20px rgba(201, 168, 76, 0.4)',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.boxShadow = '0 0 30px rgba(201, 168, 76, 0.6)';
-              e.currentTarget.style.transform = 'scale(1.05)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.boxShadow = '0 0 20px rgba(201, 168, 76, 0.4)';
-              e.currentTarget.style.transform = 'scale(1)';
-            }}
-          >
-            🎤 开始念咒
-          </button>
-        </div>
-      )}
+      {/* Ready phase: auto-starts via useEffect */}
 
-      {/* Final results */}
+      {/* Done: auto-proceed to next level */}
       {phase === 'done' && finalResult && (
-        <div
-          className="w-full max-w-md px-6 py-5 rounded-xl"
-          style={{
-            background: 'rgba(15, 15, 30, 0.85)',
-            backdropFilter: 'blur(12px)',
-            border: '1px solid rgba(201, 168, 76, 0.3)',
-          }}
-        >
-          <h3
-            className="text-2xl font-bold mb-4"
-            style={{ fontFamily: "'Noto Serif SC', serif", color: '#c9a84c' }}
-          >
-            咒语考核报告
-          </h3>
-
-          {/* Individual spell results */}
-          <div className="space-y-3 mb-4">
-            {finalResult.spells.map((sr, i) => (
-              <div
-                key={sr.spell.name}
-                className="px-3 py-2 rounded-lg text-left"
-                style={{
-                  backgroundColor: getCategoryBg(sr.spell.category),
-                  borderLeft: `3px solid ${getCategoryColor(sr.spell.category)}`,
-                }}
-              >
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-sm">{sr.spell.categoryEmoji}</span>
-                  <span className="text-sm font-bold" style={{ color: getCategoryColor(sr.spell.category) }}>
-                    {sr.spell.nameCn}
-                  </span>
-                  <span className="text-xs" style={{ color: '#9ca3af' }}>
-                    ({sr.spell.categoryLabel})
-                  </span>
-                </div>
-                <div className="flex gap-4 text-xs" style={{ color: '#9ca3af' }}>
-                  <span>准确度: <b style={{ color: sr.accuracy >= 70 ? '#22c55e' : sr.accuracy >= 40 ? '#c9a84c' : '#ef4444' }}>{sr.accuracy}</b></span>
-                  <span>气势: <b style={{ color: sr.power >= 70 ? '#22c55e' : sr.power >= 40 ? '#c9a84c' : '#ef4444' }}>{sr.power}</b></span>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Summary scores */}
-          <div className="space-y-3 text-left">
-            <ScoreBar label="咒语准确度" value={finalResult.accuracy} />
-            <ScoreBar label="魔力气势" value={finalResult.power} />
-            {finalResult.darkAffinity > 0 && (
-              <ScoreBar
-                label="黑魔法亲和度"
-                value={finalResult.darkAffinity}
-                barColor="#8b5cf6"
-              />
-            )}
-            <div
-              className="pt-3 mt-3 text-center text-xl font-bold"
-              style={{
-                borderTop: '1px solid rgba(201, 168, 76, 0.2)',
-                color: '#c9a84c',
-                textShadow: '0 0 10px rgba(201, 168, 76, 0.4)',
-              }}
-            >
-              综合评分: {finalResult.totalScore}
-            </div>
-          </div>
-
-          <button
-            onClick={() => completeLevel1Ref.current(finalResult)}
-            className="mt-5 px-8 py-3 rounded-lg text-lg font-bold tracking-wider transition-all duration-300 cursor-pointer w-full"
-            style={{
-              fontFamily: "'Cinzel', serif",
-              color: '#0a0e1a',
-              background: 'linear-gradient(135deg, #c9a84c, #d4a017, #c9a84c)',
-              boxShadow: '0 0 20px rgba(201, 168, 76, 0.4)',
-            }}
-          >
-            进入下一关 →
-          </button>
+        <div className="flex flex-col items-center gap-3">
+          <div className="text-4xl" style={{ animation: 'hatWobble 2s ease-in-out infinite' }}>🎩</div>
+          <p className="text-lg" style={{ color: '#c9a84c', fontFamily: "'Noto Serif SC', serif" }}>
+            念咒考核完成
+          </p>
+          <p className="text-sm" style={{ color: '#9ca3af' }}>即将进入施咒考验...</p>
         </div>
       )}
     </div>
   );
 }
 
-function ScoreBar({ label, value, barColor }: { label: string; value: number; barColor?: string }) {
-  const getColor = (v: number): string => {
-    if (barColor) return barColor;
-    if (v >= 80) return '#22c55e';
-    if (v >= 50) return '#c9a84c';
-    return '#ef4444';
-  };
 
-  return (
-    <div>
-      <div className="flex justify-between text-sm mb-1">
-        <span style={{ color: '#9ca3af' }}>{label}</span>
-        <span style={{ color: getColor(value) }}>{value}</span>
-      </div>
-      <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.1)' }}>
-        <div
-          className="h-full rounded-full transition-all duration-500"
-          style={{
-            width: `${value}%`,
-            backgroundColor: getColor(value),
-            boxShadow: `0 0 8px ${getColor(value)}60`,
-          }}
-        />
-      </div>
-    </div>
-  );
-}
