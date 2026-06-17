@@ -1,9 +1,11 @@
 'use client';
 
-import { useState, useRef, useCallback, useEffect } from 'react';
+import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { useGame } from './GameProvider';
 import { HOUSES, type HouseName, type SortingResult } from '@/lib/sorting-hat';
 import type { SpellCategory } from '@/lib/spells';
+import { SPELLS } from '@/lib/spells';
+import { recommendWand, BADGE_SCENES } from '@/lib/wands';
 
 type Phase = 'photo' | 'generating' | 'revealing' | 'done';
 
@@ -22,12 +24,38 @@ export default function ResultScreen() {
   const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null);
   const [revealCharIndex, setRevealCharIndex] = useState(0);
   const [showTraits, setShowTraits] = useState(false);
+  const [showBadge, setShowBadge] = useState(false);
+  const [showWand, setShowWand] = useState(false);
+  const [wandPurchased, setWandPurchased] = useState(false);
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
   const house = sortedHouse ? HOUSES[sortedHouse.name] : HOUSES.gryffindor;
+
+  // Find best spell from Level 1
+  const bestSpellData = useMemo(() => {
+    if (!level1Result?.spells || level1Result.spells.length === 0) return null;
+    const best = level1Result.spells.reduce((prev, curr) =>
+      (curr.accuracy * 0.6 + curr.power * 0.4) > (prev.accuracy * 0.6 + prev.power * 0.4) ? curr : prev
+    );
+    return best;
+  }, [level1Result]);
+
+  const bestCategory: SpellCategory = bestSpellData?.category ?? 'defense';
+
+  // Wand recommendation
+  const wand = useMemo(() => {
+    if (!sortedHouse) return null;
+    return recommendWand({
+      house: sortedHouse.name,
+      accuracy: level1Result?.accuracy ?? 50,
+      power: level1Result?.power ?? 50,
+      darkAffinity: level1Result?.darkAffinity ?? 0,
+      bestCategory,
+    });
+  }, [sortedHouse, level1Result, bestCategory]);
 
   // Start camera for photo
   useEffect(() => {
@@ -136,13 +164,24 @@ export default function ResultScreen() {
     }
   }, [phase, revealCharIndex, house.nameCn]);
 
+  // Staggered reveal of badge and wand
+  useEffect(() => {
+    if (phase !== 'done') return;
+    const badgeTimer = setTimeout(() => setShowBadge(true), 800);
+    const wandTimer = setTimeout(() => setShowWand(true), 1600);
+    return () => {
+      clearTimeout(badgeTimer);
+      clearTimeout(wandTimer);
+    };
+  }, [phase]);
+
   const totalScore = (() => {
     if (!level1Result || !level2Result) return 0;
     return Math.round(level1Result.totalScore * 0.5 + level2Result.score * 0.5);
   })();
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen px-4 text-center">
+    <div className="flex flex-col items-center justify-center min-h-screen px-4 py-8 text-center">
       {/* Progress indicator */}
       <div className="absolute top-6 left-1/2 -translate-x-1/2 flex items-center gap-2" style={{ color: '#9ca3af' }}>
         <span style={{ color: '#c9a84c' }}>●</span>
@@ -346,6 +385,204 @@ export default function ResultScreen() {
                   <p className="text-sm mt-3" style={{ color: '#e8dcc8' }}>
                     {house.description}
                   </p>
+                </div>
+              )}
+
+              {/* ===== 专属徽章 ===== */}
+              {showBadge && bestSpellData && (() => {
+                const badgeScene = BADGE_SCENES[bestCategory];
+                return (
+                  <div
+                    className="w-full px-5 py-5 rounded-xl mb-2"
+                    style={{
+                      background: 'rgba(15, 15, 30, 0.85)',
+                      backdropFilter: 'blur(12px)',
+                      border: `1px solid ${house.colors.secondary}40`,
+                      animation: 'fadeSlideUp 0.6s ease-out',
+                    }}
+                  >
+                    <h3 className="text-lg font-bold mb-3" style={{ color: house.colors.secondary, fontFamily: "'Cinzel', serif" }}>
+                      Your Badge
+                    </h3>
+
+                    {/* Badge SVG */}
+                    <div className="flex justify-center mb-3">
+                      <svg width="160" height="180" viewBox="0 0 160 180" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        {/* Shield shape */}
+                        <path
+                          d="M80 5 L155 35 L155 100 Q155 155 80 175 Q5 155 5 100 L5 35 Z"
+                          fill={house.colors.primary}
+                          stroke={house.colors.secondary}
+                          strokeWidth="2.5"
+                        />
+                        {/* Inner shield */}
+                        <path
+                          d="M80 18 L143 43 L143 97 Q143 143 80 162 Q17 143 17 97 L17 43 Z"
+                          fill={`${house.colors.primary}cc`}
+                          stroke={`${house.colors.secondary}60`}
+                          strokeWidth="1"
+                        />
+                        {/* Category symbol */}
+                        <text
+                          x="80" y="85"
+                          textAnchor="middle"
+                          dominantBaseline="middle"
+                          fontSize="42"
+                        >
+                          {badgeScene.symbol}
+                        </text>
+                        {/* House emoji */}
+                        <text
+                          x="80" y="130"
+                          textAnchor="middle"
+                          dominantBaseline="middle"
+                          fontSize="20"
+                        >
+                          {house.emoji}
+                        </text>
+                        {/* Banner */}
+                        <path
+                          d="M30 145 L130 145 L125 158 L35 158 Z"
+                          fill={house.colors.secondary}
+                          opacity="0.9"
+                        />
+                        <text
+                          x="80" y="155"
+                          textAnchor="middle"
+                          dominantBaseline="middle"
+                          fontSize="8"
+                          fill={house.colors.primary}
+                          fontWeight="bold"
+                          fontFamily="'Cinzel', serif"
+                        >
+                          {house.nameEn.toUpperCase()}
+                        </text>
+                      </svg>
+                    </div>
+
+                    {/* Badge details */}
+                    <div className="text-center">
+                      <p className="text-base font-bold mb-1" style={{ color: house.colors.secondary }}>
+                        {badgeScene.scene}
+                      </p>
+                      <p className="text-sm" style={{ color: '#9ca3af' }}>
+                        {badgeScene.description}
+                      </p>
+                      <div className="mt-2 flex items-center justify-center gap-2 text-xs">
+                        <span style={{ color: CATEGORY_COLORS[bestCategory] }}>
+                          {bestSpellData.spell.categoryEmoji} {bestSpellData.spell.nameCn}
+                        </span>
+                        <span style={{ color: '#9ca3af' }}>·</span>
+                        <span style={{ color: '#9ca3af' }}>
+                          准确 {bestSpellData.accuracy} / 气势 {bestSpellData.power}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* ===== 魔杖推荐 ===== */}
+              {showWand && wand && (
+                <div
+                  className="w-full px-5 py-5 rounded-xl mb-2"
+                  style={{
+                    background: 'rgba(15, 15, 30, 0.85)',
+                    backdropFilter: 'blur(12px)',
+                    border: `1px solid rgba(201, 168, 76, 0.3)`,
+                    animation: 'fadeSlideUp 0.6s ease-out',
+                  }}
+                >
+                  <h3 className="text-lg font-bold mb-3" style={{ color: '#c9a84c', fontFamily: "'Cinzel', serif" }}>
+                    Your Wand
+                  </h3>
+
+                  {/* Wand display */}
+                  <div className="flex flex-col items-center mb-4">
+                    <div
+                      className="w-32 h-32 flex items-center justify-center rounded-full mb-2"
+                      style={{
+                        background: `radial-gradient(circle, ${house.colors.secondary}20 0%, transparent 70%)`,
+                        border: `1px solid ${house.colors.secondary}30`,
+                      }}
+                    >
+                      <span className="text-6xl" style={{ filter: `drop-shadow(0 0 8px ${house.colors.secondary}60)` }}>
+                        🪄
+                      </span>
+                    </div>
+                    <p className="text-base font-bold" style={{ color: '#c9a84c', fontFamily: "'Cinzel', serif" }}>
+                      {wand.name}
+                    </p>
+                  </div>
+
+                  {/* Wand specs */}
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-left mb-3">
+                    <div>
+                      <span style={{ color: '#9ca3af' }}>杖木：</span>
+                      <span style={{ color: '#e8dcc8' }}>{wand.woodCn}</span>
+                    </div>
+                    <div>
+                      <span style={{ color: '#9ca3af' }}>杖芯：</span>
+                      <span style={{ color: '#e8dcc8' }}>{wand.coreCn}</span>
+                    </div>
+                    <div>
+                      <span style={{ color: '#9ca3af' }}>长度：</span>
+                      <span style={{ color: '#e8dcc8' }}>{wand.length}</span>
+                    </div>
+                    <div>
+                      <span style={{ color: '#9ca3af' }}>弹性：</span>
+                      <span style={{ color: '#e8dcc8' }}>{wand.flexibility}</span>
+                    </div>
+                  </div>
+
+                  {/* Wand description */}
+                  <p className="text-sm text-left mb-4" style={{ color: '#9ca3af', lineHeight: '1.6' }}>
+                    {wand.description}
+                  </p>
+
+                  {/* Price & Purchase */}
+                  <div
+                    className="pt-3"
+                    style={{ borderTop: '1px solid rgba(201, 168, 76, 0.2)' }}
+                  >
+                    {!wandPurchased ? (
+                      <div className="flex items-center justify-between">
+                        <div className="text-left">
+                          <p className="text-xs" style={{ color: '#9ca3af' }}>奥利凡德魔杖店 · 限量定制</p>
+                          <p className="text-xl font-bold" style={{ color: '#c9a84c', fontFamily: "'Cinzel', serif" }}>
+                            {wand.price} <span className="text-sm">加隆</span>
+                          </p>
+                          <p className="text-xs" style={{ color: '#9ca3af' }}>
+                            ≈ {wand.priceKnuts} 纳特
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => setWandPurchased(true)}
+                          className="px-6 py-3 rounded-lg font-bold tracking-wider transition-all duration-300 cursor-pointer"
+                          style={{
+                            fontFamily: "'Cinzel', serif",
+                            color: '#0a0e1a',
+                            background: 'linear-gradient(135deg, #c9a84c, #d4a017, #c9a84c)',
+                            boxShadow: '0 0 20px rgba(201, 168, 76, 0.4)',
+                          }}
+                        >
+                          购买魔杖
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="text-center py-2">
+                        <p className="text-lg font-bold mb-1" style={{ color: '#c9a84c' }}>
+                          🪄 魔杖已选择你！
+                        </p>
+                        <p className="text-sm" style={{ color: '#9ca3af' }}>
+                          奥利凡德先生说：&ldquo;魔杖选择巫师，记住这一点。&rdquo;
+                        </p>
+                        <p className="text-xs mt-2" style={{ color: '#9ca3af' }}>
+                          你的{wand.woodCn}魔杖正在由奥利凡德先生亲手制作，预计7个猫头鹰工作日送达。
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
 
