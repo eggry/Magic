@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ImageGenerationClient, Config, HeaderUtils } from 'coze-coding-dev-sdk';
 import { S3Storage } from 'coze-coding-dev-sdk';
-import { HOUSES, type House } from '@/lib/sorting-hat';
+import { HOUSES, type HouseName } from '@/lib/sorting-hat';
 
 export async function POST(request: NextRequest) {
   try {
-    const { house, photoBase64 } = await request.json() as { house: House; photoBase64?: string };
+    const { house, photoBase64 } = await request.json() as { house: HouseName; photoBase64?: string };
 
     const houseInfo = HOUSES[house] || HOUSES.gryffindor;
     const customHeaders = HeaderUtils.extractForwardHeaders(request.headers);

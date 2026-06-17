@@ -2,9 +2,18 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useGame } from './GameProvider';
-import { HOUSES, type House } from '@/lib/sorting-hat';
+import { HOUSES, type HouseName, type SortingResult } from '@/lib/sorting-hat';
+import type { SpellCategory } from '@/lib/spells';
 
 type Phase = 'photo' | 'generating' | 'revealing' | 'done';
+
+const CATEGORY_COLORS: Record<SpellCategory, string> = {
+  defense: '#3b82f6',
+  utility: '#22c55e',
+  combat: '#f59e0b',
+  dark: '#8b5cf6',
+  unforgivable: '#ef4444',
+};
 
 export default function ResultScreen() {
   const { level1Result, level2Result, sortedHouse, resetGame } = useGame();
@@ -18,7 +27,7 @@ export default function ResultScreen() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
-  const house = sortedHouse ? HOUSES[sortedHouse] : HOUSES.gryffindor;
+  const house = sortedHouse ? HOUSES[sortedHouse.name] : HOUSES.gryffindor;
 
   // Start camera for photo
   useEffect(() => {
@@ -41,7 +50,6 @@ export default function ResultScreen() {
         }
       } catch (err) {
         console.error('Camera denied for photo:', err);
-        // Skip photo step
         setPhotoDataUrl('');
         setPhase('generating');
         generateImage(null);
@@ -65,7 +73,6 @@ export default function ResultScreen() {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Mirror the image for selfie
     ctx.translate(canvas.width, 0);
     ctx.scale(-1, 1);
     ctx.drawImage(video, 0, 0);
@@ -74,7 +81,6 @@ export default function ResultScreen() {
     const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
     setPhotoDataUrl(dataUrl);
 
-    // Stop camera
     streamRef.current?.getTracks().forEach(t => t.stop());
     streamRef.current = null;
 
@@ -82,16 +88,16 @@ export default function ResultScreen() {
     generateImage(dataUrl);
   }, []);
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const generateImage = async (photoData: string | null) => {
     try {
-      let body: { house: House; photoBase64?: string };
+      const body: { house: HouseName; photoBase64?: string } = {
+        house: sortedHouse?.name || 'gryffindor',
+      };
 
       if (photoData) {
-        // Strip data URL prefix
         const base64 = photoData.split(',')[1] || '';
-        body = { house: sortedHouse || 'gryffindor', photoBase64: base64 };
-      } else {
-        body = { house: sortedHouse || 'gryffindor' };
+        body.photoBase64 = base64;
       }
 
       const resp = await fetch('/api/generate-image', {
@@ -101,7 +107,6 @@ export default function ResultScreen() {
       });
 
       const data = await resp.json();
-
       if (data.imageUrl) {
         setGeneratedImageUrl(data.imageUrl);
       }
@@ -109,11 +114,10 @@ export default function ResultScreen() {
       console.error('Image generation failed:', err);
     }
 
-    // Start reveal animation regardless
     setPhase('revealing');
   };
 
-  // Reveal animation: show house name letter by letter
+  // Reveal animation
   useEffect(() => {
     if (phase !== 'revealing') return;
 
@@ -183,7 +187,7 @@ export default function ResultScreen() {
               boxShadow: '0 0 20px rgba(201, 168, 76, 0.4)',
             }}
           >
-            📸 拍照
+            拍照
           </button>
           <button
             onClick={() => {
@@ -234,10 +238,20 @@ export default function ResultScreen() {
             <>
               <p
                 className="text-xl mb-2"
-                style={{ color: house.colors.accent, fontFamily: "'Cinzel', serif" }}
+                style={{ color: house.colors.secondary, fontFamily: "'Cinzel', serif" }}
               >
                 {house.motto}
               </p>
+
+              {/* Hat message */}
+              {sortedHouse && (
+                <p
+                  className="text-sm italic mb-2 px-4"
+                  style={{ color: '#c9a84c' }}
+                >
+                  🎩 &ldquo;{sortedHouse.hatMessage}&rdquo;
+                </p>
+              )}
 
               {/* Score breakdown */}
               <div
@@ -251,32 +265,50 @@ export default function ResultScreen() {
                 <h3 className="text-lg font-bold mb-3" style={{ color: house.colors.secondary, fontFamily: "'Cinzel', serif" }}>
                   Assessment Report
                 </h3>
+
+                {/* Level 1 breakdown */}
                 {level1Result && (
-                  <div className="mb-2 text-left">
-                    <p className="text-sm mb-1" style={{ color: '#9ca3af' }}>
-                      念咒: 准确度 {level1Result.accuracy} / 气势 {level1Result.power}
+                  <div className="mb-3 text-left">
+                    <p className="text-sm font-bold mb-2" style={{ color: '#c9a84c' }}>
+                      念咒评估
                     </p>
-                    <div className="h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.1)' }}>
-                      <div
-                        className="h-full rounded-full"
-                        style={{ width: `${level1Result.totalScore}%`, backgroundColor: house.colors.accent }}
-                      />
+                    {/* Individual spells */}
+                    <div className="space-y-1.5 mb-2">
+                      {level1Result.spells.map((sr) => (
+                        <div key={sr.spell.name} className="flex items-center gap-2 text-xs">
+                          <span>{sr.spell.categoryEmoji}</span>
+                          <span style={{ color: CATEGORY_COLORS[sr.category] }}>{sr.spell.nameCn}</span>
+                          <span style={{ color: '#9ca3af' }}>准确{sr.accuracy}</span>
+                          <span style={{ color: '#9ca3af' }}>气势{sr.power}</span>
+                        </div>
+                      ))}
                     </div>
+                    <div className="flex gap-4 text-sm">
+                      <span style={{ color: '#9ca3af' }}>平均准确度: <b style={{ color: '#e8dcc8' }}>{level1Result.accuracy}</b></span>
+                      <span style={{ color: '#9ca3af' }}>平均气势: <b style={{ color: '#e8dcc8' }}>{level1Result.power}</b></span>
+                    </div>
+                    {level1Result.darkAffinity > 0 && (
+                      <div className="mt-1">
+                        <MiniBar label="黑魔法亲和度" value={level1Result.darkAffinity} color="#8b5cf6" />
+                      </div>
+                    )}
                   </div>
                 )}
+
+                {/* Level 2 breakdown */}
                 {level2Result && (
-                  <div className="mb-2 text-left">
-                    <p className="text-sm mb-1" style={{ color: '#9ca3af' }}>
-                      施咒: 匹配度 {level2Result.score} / 精度 {level2Result.precision}
+                  <div className="mb-3 text-left">
+                    <p className="text-sm font-bold mb-2" style={{ color: '#c9a84c' }}>
+                      施咒评估
                     </p>
-                    <div className="h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.1)' }}>
-                      <div
-                        className="h-full rounded-full"
-                        style={{ width: `${level2Result.score}%`, backgroundColor: house.colors.accent }}
-                      />
+                    <div className="flex gap-4 text-sm mb-1">
+                      <span style={{ color: '#9ca3af' }}>匹配度: <b style={{ color: '#e8dcc8' }}>{level2Result.score}</b></span>
+                      <span style={{ color: '#9ca3af' }}>精度: <b style={{ color: '#e8dcc8' }}>{level2Result.precision}</b></span>
                     </div>
+                    <MiniBar label="图案匹配" value={level2Result.score} color={house.colors.secondary} />
                   </div>
                 )}
+
                 <div
                   className="pt-2 mt-2 text-lg font-bold text-center"
                   style={{ borderTop: `1px solid ${house.colors.secondary}30`, color: house.colors.secondary }}
@@ -317,7 +349,7 @@ export default function ResultScreen() {
                 </div>
               )}
 
-              {/* Generated image or photo */}
+              {/* Generated image */}
               {generatedImageUrl && (
                 <div
                   className="w-full rounded-xl overflow-hidden mb-2"
@@ -332,18 +364,16 @@ export default function ResultScreen() {
                     className="w-full"
                   />
                   <p className="text-xs py-2" style={{ color: '#9ca3af', backgroundColor: 'rgba(15,15,30,0.8)' }}>
-                    ✨ AI 生成的学院巫师肖像
+                    AI 生成的学院巫师肖像
                   </p>
                 </div>
               )}
 
-              {/* Photo fallback if no generated image */}
+              {/* Photo fallback */}
               {!generatedImageUrl && photoDataUrl && (
                 <div
                   className="w-full rounded-xl overflow-hidden mb-2"
-                  style={{
-                    border: `2px solid ${house.colors.secondary}60`,
-                  }}
+                  style={{ border: `2px solid ${house.colors.secondary}60` }}
                 >
                   <div className="relative">
                     <img src={photoDataUrl} alt="Your photo" className="w-full" />
@@ -376,6 +406,23 @@ export default function ResultScreen() {
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+function MiniBar({ label, value, color }: { label: string; value: number; color: string }) {
+  return (
+    <div>
+      <div className="flex justify-between text-xs mb-0.5">
+        <span style={{ color: '#9ca3af' }}>{label}</span>
+        <span style={{ color }}>{value}</span>
+      </div>
+      <div className="h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.1)' }}>
+        <div
+          className="h-full rounded-full"
+          style={{ width: `${value}%`, backgroundColor: color, boxShadow: `0 0 6px ${color}40` }}
+        />
+      </div>
     </div>
   );
 }

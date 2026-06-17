@@ -1,20 +1,28 @@
 'use client';
 
 import React, { createContext, useContext, useState, useCallback } from 'react';
-import type { House } from '@/lib/sorting-hat';
-import type { Spell } from '@/lib/spells';
+import type { SortingResult } from '@/lib/sorting-hat';
+import type { Spell, SpellCategory } from '@/lib/spells';
 import type { MagicPattern } from '@/lib/patterns';
-import { getRandomSpell } from '@/lib/spells';
 import { getRandomPattern } from '@/lib/patterns';
 import { sortIntoHouse } from '@/lib/sorting-hat';
 
 export type GamePhase = 'intro' | 'level1' | 'level2' | 'result';
 
-export interface Level1Result {
+export interface SpellResult {
   spell: Spell;
-  accuracy: number;   // 0-100, 语音识别匹配度
-  power: number;      // 0-100, 音量/气势
-  totalScore: number; // 综合分
+  accuracy: number;
+  power: number;
+  category: SpellCategory;
+}
+
+export interface Level1Result {
+  spells: SpellResult[];
+  accuracy: number;   // 0-100, average accuracy across 3 spells
+  power: number;      // 0-100, average power across 3 spells
+  darkAffinity: number; // 0-100, performance on dark/unforgivable spells
+  lightAffinity: number; // 0-100, performance on defense/utility spells
+  totalScore: number; // combined score
 }
 
 export interface Level2Result {
@@ -27,7 +35,7 @@ export interface GameState {
   phase: GamePhase;
   level1Result: Level1Result | null;
   level2Result: Level2Result | null;
-  sortedHouse: House | null;
+  sortedHouse: SortingResult | null;
   generatedImageUrl: string | null;
   userPhotoUrl: string | null;
 }
@@ -36,7 +44,7 @@ interface GameContextType extends GameState {
   startGame: () => void;
   completeLevel1: (result: Level1Result) => void;
   completeLevel2: (result: Level2Result) => void;
-  setResult: (house: House, photoUrl: string | null, generatedUrl: string | null) => void;
+  setResult: (house: SortingResult, photoUrl: string | null, generatedUrl: string | null) => void;
   resetGame: () => void;
 }
 
@@ -73,6 +81,8 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       const house = sortIntoHouse({
         chantAccuracy: l1.accuracy,
         chantPower: l1.power,
+        darkAffinity: l1.darkAffinity,
+        lightAffinity: l1.lightAffinity,
         patternScore: result.score,
         patternPrecision: result.precision,
       });
@@ -80,8 +90,13 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  const setResult = useCallback((house: House, photoUrl: string | null, generatedUrl: string | null) => {
-    setState(prev => ({ ...prev, sortedHouse: house, userPhotoUrl: photoUrl, generatedImageUrl: generatedUrl }));
+  const setResult = useCallback((house: SortingResult, photoUrl: string | null, generatedUrl: string | null) => {
+    setState(prev => ({
+      ...prev,
+      sortedHouse: house,
+      userPhotoUrl: photoUrl,
+      generatedImageUrl: generatedUrl,
+    }));
   }, []);
 
   const resetGame = useCallback(() => {
