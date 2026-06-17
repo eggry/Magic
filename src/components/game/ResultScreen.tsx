@@ -24,11 +24,7 @@ export default function ResultScreen() {
   const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(null);
   const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null);
   const [revealCharIndex, setRevealCharIndex] = useState(0);
-  const [showTraits, setShowTraits] = useState(false);
   const [showBadge, setShowBadge] = useState(false);
-  const [badgeUrl, setBadgeUrl] = useState<string | null>(null);
-  const [badgeLoading, setBadgeLoading] = useState(false);
-  const badgeFetchingRef = useRef(false);
   const [badgeForged, setBadgeForged] = useState(false);
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string | null>(null);
   const [showWand, setShowWand] = useState(false);
@@ -163,7 +159,6 @@ export default function ResultScreen() {
       return () => clearTimeout(timer);
     } else {
       const timer = setTimeout(() => {
-        setShowTraits(true);
         setPhase('done');
       }, 500);
       return () => clearTimeout(timer);
@@ -180,29 +175,6 @@ export default function ResultScreen() {
       clearTimeout(wandTimer);
     };
   }, [phase]);
-
-  // Fetch AI-generated badge when badge section appears
-  useEffect(() => {
-    if (!showBadge || badgeUrl || !sortedHouse || badgeFetchingRef.current) return;
-    const fetchBadge = async () => {
-      badgeFetchingRef.current = true;
-      setBadgeLoading(true);
-      try {
-        const res = await fetch('/api/generate-badge', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ spellName: bestSpellData?.spell.nameCn ?? '荧光闪烁' }),
-        });
-        const data = await res.json();
-        if (data.badgeUrl) setBadgeUrl(data.badgeUrl);
-      } catch {
-        // Badge generation failed, will show fallback
-      } finally {
-        setBadgeLoading(false);
-      }
-    };
-    fetchBadge();
-  }, [showBadge, badgeUrl, sortedHouse, bestSpellData]);
 
   // Generate QR code for the generated image URL
   useEffect(() => {
@@ -361,7 +333,7 @@ export default function ResultScreen() {
                     >
                       <img
                         src={generatedImageUrl}
-                        alt="Your wizard portrait"
+                        alt="巫师肖像"
                         className="w-full h-full object-contain"
                         style={{ maxHeight: 'calc(100vh - 380px)' }}
                       />
@@ -371,7 +343,7 @@ export default function ResultScreen() {
                       className="relative rounded-xl overflow-hidden w-full"
                       style={{ border: `2px solid ${house.colors.secondary}60`, maxHeight: 'calc(100vh - 380px)' }}
                     >
-                      <img src={photoDataUrl} alt="Your photo" className="w-full object-contain" style={{ maxHeight: 'calc(100vh - 380px)' }} />
+                      <img src={photoDataUrl} alt="你的照片" className="w-full object-contain" style={{ maxHeight: 'calc(100vh - 380px)' }} />
                       <div
                         className="absolute bottom-0 left-0 right-0 px-4 py-2 text-center font-bold text-lg"
                         style={{
@@ -398,15 +370,15 @@ export default function ResultScreen() {
 
                   {/* QR Code — large and prominent */}
                   {qrCodeDataUrl && (
-                    <div className="flex items-center gap-4 shrink-0">
+                    <div className="flex items-center gap-5 shrink-0">
                       <img
                         src={qrCodeDataUrl}
                         alt="扫码保存图片"
                         className="rounded-lg"
-                        style={{ width: 140, height: 140, imageRendering: 'pixelated', border: `2px solid ${house.colors.secondary}40` }}
+                        style={{ width: 180, height: 180, imageRendering: 'pixelated', border: `3px solid ${house.colors.secondary}50` }}
                       />
                       <div className="text-left">
-                        <p className="text-base font-bold" style={{ color: house.colors.secondary }}>扫码保存</p>
+                        <p className="text-lg font-bold" style={{ color: house.colors.secondary }}>扫码保存</p>
                         <p className="text-sm" style={{ color: '#9ca3af' }}>手机扫码下载<br/>你的巫师肖像</p>
                       </div>
                     </div>
@@ -419,7 +391,7 @@ export default function ResultScreen() {
                   {/* Score breakdown */}
                   <div className="rounded-xl px-4 py-3" style={cardStyle()}>
                     <h3 className="text-sm font-bold mb-2" style={{ color: house.colors.secondary, fontFamily: "'Cinzel', serif" }}>
-                      Assessment Report
+                      评估报告
                     </h3>
 
                     {level1Result && (
@@ -466,28 +438,6 @@ export default function ResultScreen() {
                     </div>
                   </div>
 
-                  {/* Traits */}
-                  {showTraits && (
-                    <div className="rounded-xl px-4 py-3" style={cardStyle()}>
-                      <p className="text-xs mb-1.5" style={{ color: '#9ca3af' }}>你的品质</p>
-                      <div className="flex justify-center gap-2 flex-wrap">
-                        {house.traits.map(trait => (
-                          <span
-                            key={trait}
-                            className="px-2 py-0.5 rounded-full text-xs font-bold"
-                            style={{
-                              backgroundColor: `${house.colors.secondary}20`,
-                              color: house.colors.secondary,
-                              border: `1px solid ${house.colors.secondary}40`,
-                            }}
-                          >
-                            {trait}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
                   {/* Badge + Wand side by side */}
                   <div className="flex gap-3">
                     {/* Badge */}
@@ -501,7 +451,7 @@ export default function ResultScreen() {
                             animation: 'fadeSlideUp 0.6s ease-out',
                           }}
                         >
-                          <h3 className="text-sm font-bold mb-2" style={{ color: house.colors.secondary, fontFamily: "'Cinzel', serif" }}>
+                          <h3 className="text-sm font-bold mb-2 text-center" style={{ color: house.colors.secondary, fontFamily: "'Cinzel', serif" }}>
                             专属徽章
                           </h3>
 
@@ -516,38 +466,29 @@ export default function ResultScreen() {
                                 boxShadow: `0 0 20px ${house.colors.secondary}30, inset 0 0 12px ${house.colors.primary}40`,
                               }}
                             >
-                              {badgeLoading && (
-                                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                  <div
-                                    className="w-8 h-8 rounded-full border-2 border-t-transparent animate-spin mb-1"
-                                    style={{ borderColor: `${house.colors.secondary}60`, borderTopColor: 'transparent' }}
-                                  />
-                                  <p className="text-[10px]" style={{ color: house.colors.secondary }}>锻造中...</p>
-                                </div>
-                              )}
-                              {badgeUrl && (
-                                <img
-                                  src={badgeUrl}
-                                  alt="专属徽章"
-                                  className="w-full h-full object-contain"
-                                  style={{ filter: `drop-shadow(0 0 8px ${house.colors.secondary}40)` }}
-                                />
-                              )}
-                              {!badgeUrl && !badgeLoading && (
-                                <div className="absolute inset-0 flex flex-col items-center justify-center">
-                                  <span style={{ fontSize: 36, filter: `drop-shadow(0 0 8px ${house.colors.secondary})` }}>
-                                    {bestSpell.categoryEmoji}
-                                  </span>
-                                  <span style={{ fontSize: 20, marginTop: 2, filter: `drop-shadow(0 0 6px ${house.colors.secondary})` }}>
-                                    {house.emoji}
-                                  </span>
-                                </div>
-                              )}
+                              <img
+                                src={`/badges/${bestSpell.nameCn}.png`}
+                                alt="专属徽章"
+                                className="w-full h-full object-contain"
+                                style={{ filter: `drop-shadow(0 0 8px ${house.colors.secondary}40)` }}
+                                onError={(e) => {
+                                  // Fallback to emoji if image not found
+                                  const target = e.currentTarget;
+                                  target.style.display = 'none';
+                                  const parent = target.parentElement;
+                                  if (parent) {
+                                    parent.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;height:100%">
+                                      <span style="font-size:36px;filter:drop-shadow(0 0 8px ${house.colors.secondary})">${bestSpell.categoryEmoji}</span>
+                                      <span style="font-size:20px;margin-top:2px;filter:drop-shadow(0 0 6px ${house.colors.secondary})">${house.emoji}</span>
+                                    </div>`;
+                                  }
+                                }}
+                              />
                             </div>
                           </div>
 
-                          <p className="text-sm font-bold" style={{ color: house.colors.secondary }}>{bestSpell.nameCn}</p>
-                          <p className="text-[11px] mb-2" style={{ color: '#9ca3af' }}>
+                          <p className="text-sm font-bold text-center" style={{ color: house.colors.secondary }}>{bestSpell.nameCn}</p>
+                          <p className="text-[11px] mb-2 text-center" style={{ color: '#9ca3af' }}>
                             {bestCategory === 'dark' || bestCategory === 'unforgivable' ? '暗黑之力' : bestCategory === 'defense' ? '守护之光' : bestCategory === 'combat' ? '战斗之魂' : '万象灵光'}
                           </p>
 
@@ -576,29 +517,40 @@ export default function ResultScreen() {
                     {/* Wand */}
                     {showWand && wand && (
                       <div
-                        className="rounded-xl px-4 py-3 flex-1"
+                        className="rounded-xl px-4 py-3 flex-1 flex flex-col"
                         style={{
                           ...cardStyle({ border: '1px solid rgba(201, 168, 76, 0.3)' }),
                           animation: 'fadeSlideUp 0.6s ease-out',
                         }}
                       >
-                        <h3 className="text-sm font-bold mb-2" style={{ color: '#c9a84c', fontFamily: "'Cinzel', serif" }}>
-                          Your Wand
+                        <h3 className="text-sm font-bold mb-2 text-center" style={{ color: '#c9a84c', fontFamily: "'Cinzel', serif" }}>
+                          你的魔杖
                         </h3>
 
-                        <div className="flex flex-col items-center mb-2">
-                          <img
-                            src="/wand.png"
-                            alt="Magic Wand"
-                            className="object-contain"
-                            style={{ width: 80, height: 80, filter: `drop-shadow(0 0 8px ${house.colors.secondary}80)` }}
-                          />
-                          <p className="text-sm font-bold mt-1" style={{ color: '#c9a84c', fontFamily: "'Cinzel', serif" }}>
-                            {wand.name}
-                          </p>
+                        <div className="flex justify-center mb-2">
+                          <div
+                            className="relative rounded-lg overflow-hidden flex items-center justify-center"
+                            style={{
+                              width: 120,
+                              height: 120,
+                              background: 'linear-gradient(135deg, #0a0e1a 0%, #1a1025 100%)',
+                              border: '2px solid rgba(201, 168, 76, 0.4)',
+                              boxShadow: '0 0 20px rgba(201, 168, 76, 0.2), inset 0 0 12px rgba(201, 168, 76, 0.1)',
+                            }}
+                          >
+                            <img
+                              src="/wand.png"
+                              alt="魔杖"
+                              className="object-contain"
+                              style={{ width: 90, height: 90, filter: `drop-shadow(0 0 8px ${house.colors.secondary}80)` }}
+                            />
+                          </div>
                         </div>
 
-                        <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-left mb-2">
+                        <p className="text-sm font-bold text-center" style={{ color: '#c9a84c', fontFamily: "'Cinzel', serif" }}>
+                          {wand.name}
+                        </p>
+                        <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-xs text-center mb-2 mt-1">
                           <div><span style={{ color: '#9ca3af' }}>杖木：</span><span style={{ color: '#e8dcc8' }}>{wand.woodCn}</span></div>
                           <div><span style={{ color: '#9ca3af' }}>杖芯：</span><span style={{ color: '#e8dcc8' }}>{wand.coreCn}</span></div>
                           <div><span style={{ color: '#9ca3af' }}>长度：</span><span style={{ color: '#e8dcc8' }}>{wand.length}</span></div>

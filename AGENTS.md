@@ -20,6 +20,8 @@
 ├── src/
 │   ├── app/
 │   │   ├── api/
+│   │   │   ├── generate-badge/
+│   │   │   │   └── route.ts     # AI 徽章生成 API（预生成，结果页用静态图）
 │   │   │   └── generate-image/
 │   │   │       └── route.ts     # AI 图像生成 API（img2img）
 │   │   ├── globals.css          # 全局样式（哈利波特主题）
@@ -36,10 +38,17 @@
 │   ├── lib/
 │   │   ├── patterns.ts          # 魔法符文图案数据 + 匹配算法
 │   │   ├── sorting-hat.ts       # 分院算法 + 学院数据
+│   │   ├── spellMatch.ts        # 拼音模糊匹配引擎（pinyin-pro）
 │   │   ├── spells.ts            # 咒语数据
-│   │   └── utils.ts             # 通用工具函数
+│   │   ├── utils.ts             # 通用工具函数
+│   │   └── wands.ts             # 魔杖推荐数据 + 算法
 │   └── types/
 │       └── speech.d.ts          # Web Speech API 类型声明
+├── public/
+│   ├── badges/                  # 预生成的21个咒语徽章图片
+│   └── wand.png                 # 魔杖图片
+├── scripts/
+│   └── generate-badges.ts       # 批量生成徽章脚本
 ```
 
 ## 构建与测试命令
@@ -76,6 +85,8 @@
 - **魔杖追踪**: Canvas 逐帧处理视频，检测最亮点（手机手电筒），记录轨迹点
 - **分院算法**: 基于咒语倾向性(黑魔法亲和度/光明亲和度) + 念咒准确度/气势 + 图案匹配/精度加权计算
 - **AI 换装**: 用户照片上传至 S3 → 生成签名 URL → img2img 生成学院服饰肖像
+- **徽章系统**: 预生成21个咒语徽章(脚本 `scripts/generate-badges.ts`)，存储在 `public/badges/`，结果页直接引用静态图
+- **二维码**: 使用 qrcode 库为 AI 生成图片生成二维码，扫码可下载
 
 ## 编码规范
 
