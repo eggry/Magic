@@ -7,7 +7,7 @@ import type { MagicPattern } from '@/lib/patterns';
 import { getRandomPattern } from '@/lib/patterns';
 import { sortIntoHouse } from '@/lib/sorting-hat';
 
-export type GamePhase = 'intro' | 'level1' | 'level2' | 'result';
+export type GamePhase = 'intro' | 'level1' | 'level2' | 'photo' | 'result';
 
 export interface SpellResult {
   spell: Spell;
@@ -44,6 +44,7 @@ interface GameContextType extends GameState {
   startGame: () => void;
   completeLevel1: (result: Level1Result) => void;
   completeLevel2: (result: Level2Result) => void;
+  completePhoto: () => void;
   setResult: (house: SortingResult, photoUrl: string | null, generatedUrl: string | null) => void;
   resetGame: () => void;
 }
@@ -86,8 +87,12 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         patternScore: result.score,
         patternPrecision: result.precision,
       });
-      return { ...prev, level2Result: result, sortedHouse: house, phase: 'result' };
+      return { ...prev, level2Result: result, sortedHouse: house, phase: 'photo' };
     });
+  }, []);
+
+  const completePhoto = useCallback(() => {
+    setState(prev => ({ ...prev, phase: 'result' }));
   }, []);
 
   const setResult = useCallback((house: SortingResult, photoUrl: string | null, generatedUrl: string | null) => {
@@ -111,7 +116,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <GameContext.Provider value={{ ...state, startGame, completeLevel1, completeLevel2, setResult, resetGame }}>
+    <GameContext.Provider value={{ ...state, startGame, completeLevel1, completeLevel2, completePhoto, setResult, resetGame }}>
       {children}
     </GameContext.Provider>
   );

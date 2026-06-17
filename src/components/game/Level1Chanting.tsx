@@ -9,7 +9,7 @@ import SpellAnimation from './SpellAnimation';
 
 type Phase = 'ready' | 'countdown' | 'listening' | 'transition' | 'done';
 
-const TIME_PER_SPELL = 10; // 每个咒语限时 10 秒
+const TIME_PER_SPELL = 7; // 每个咒语限时 7 秒
 
 export default function Level1Chanting() {
   const { completeLevel1 } = useGame();

@@ -4,6 +4,7 @@ import { GameProvider, useGame } from '@/components/game/GameProvider';
 import IntroScreen from '@/components/game/IntroScreen';
 import Level1Chanting from '@/components/game/Level1Chanting';
 import Level2Casting from '@/components/game/Level2Casting';
+import PhotoCapture from '@/components/game/PhotoCapture';
 import ResultScreen from '@/components/game/ResultScreen';
 
 function GameContent() {
@@ -19,6 +20,7 @@ function GameContent() {
       {phase === 'intro' && <IntroScreen />}
       {phase === 'level1' && <Level1Chanting />}
       {phase === 'level2' && <Level2Casting />}
+      {phase === 'photo' && <PhotoCapture />}
       {phase === 'result' && <ResultScreen />}
     </div>
   );

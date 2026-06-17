@@ -65,7 +65,8 @@ export async function POST(request: NextRequest) {
           region: 'cn-beijing',
         });
 
-        const buffer = Buffer.from(photoBase64, 'base64');
+        const base64Data = photoBase64.replace(/^data:image\/\w+;base64,/, '');
+        const buffer = Buffer.from(base64Data, 'base64');
         const fileKey = await storage.uploadFile({
           fileContent: buffer,
           fileName: `wizard-photos/photo_${Date.now()}.jpg`,

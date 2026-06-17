@@ -1,19 +1,28 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useGame } from "./GameProvider";
 import { recommendWand } from "@/lib/wands";
 import { getBadgeUrl, type Spell } from "@/lib/spells";
 import { Button } from "@/components/ui/button";
-import { Sparkles, Wand2, Shield, Star, ChevronRight, Camera, RotateCcw, Loader2 } from "lucide-react";
+import {
+  Sparkles,
+  Wand2,
+  ChevronRight,
+  Camera,
+  RotateCcw,
+  Loader2,
+  Shield,
+  Flame,
+  Eye,
+  Scroll,
+  Star,
+} from "lucide-react";
 import type { HouseName } from "@/lib/sorting-hat";
 
 export default function ResultScreen() {
-  const { level1Result, level2Result, sortedHouse, generatedImageUrl, setResult, resetGame } = useGame();
-  const [step, setStep] = useState<"report" | "portrait" | "badge" | "wand">("report");
-  const [photoLoading, setPhotoLoading] = useState(false);
-  const [photoError, setPhotoError] = useState<string | null>(null);
-  const [photoGenerated, setPhotoGenerated] = useState(false);
+  const { level1Result, level2Result, sortedHouse, generatedImageUrl, resetGame } = useGame();
+  const [step, setStep] = useState<"portrait" | "badge" | "wand" | "report">("portrait");
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string | null>(null);
   const [wandBought, setWandBought] = useState(false);
   const [badgeForged, setBadgeForged] = useState(false);
@@ -42,14 +51,14 @@ export default function ResultScreen() {
     return best;
   }, [level1Result]);
 
-  const bestCategory = useMemo<Spell['category'] | null>(() => {
+  const bestCategory = useMemo<Spell["category"] | null>(() => {
     if (!level1Result || level1Result.spells.length === 0) return null;
     const cats = level1Result.spells.reduce<Record<string, number>>((acc, s) => {
       acc[s.spell.category] = (acc[s.spell.category] || 0) + (s.accuracy + s.power) / 2;
       return acc;
     }, {});
     const bestCat = Object.entries(cats).sort((a, b) => b[1] - a[1])[0];
-    return bestCat ? (bestCat[0] as Spell['category']) : null;
+    return bestCat ? (bestCat[0] as Spell["category"]) : null;
   }, [level1Result]);
 
   const wand = useMemo(() => {
@@ -72,517 +81,481 @@ export default function ResultScreen() {
   useEffect(() => {
     if (!generatedImageUrl) return;
     let cancelled = false;
-    import("qrcode").then((QRCode) => {
-      if (cancelled) return;
-      QRCode.toDataURL(generatedImageUrl, {
-        width: 400,
-        margin: 2,
-        color: { dark: "#c9a84c", light: "#0a0e1a" },
-      }).then((url: string) => {
-        if (!cancelled) setQrCodeDataUrl(url);
-      }).catch(() => {});
-    });
-    return () => { cancelled = true; };
+    import("qrcode")
+      .then((QRCode) => {
+        if (cancelled) return;
+        QRCode.toDataURL(generatedImageUrl, {
+          width: 400,
+          margin: 2,
+          color: { dark: "#c9a84c", light: "#0a0e1a" },
+        })
+          .then((url: string) => {
+            if (!cancelled) setQrCodeDataUrl(url);
+          })
+          .catch(() => {});
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
   }, [generatedImageUrl]);
 
-  // Auto-advance from portrait step once photo is generated
-  useEffect(() => {
-    if (step === "portrait" && photoGenerated && generatedImageUrl) {
-      const t = setTimeout(() => setStep("badge"), 1500);
-      return () => clearTimeout(t);
-    }
-  }, [step, photoGenerated, generatedImageUrl]);
+  const house = sortedHouse;
+  if (!house) return null;
 
-  const handleTakePhoto = useCallback(async () => {
-    setPhotoLoading(true);
-    setPhotoError(null);
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-      const video = document.createElement("video");
-      video.srcObject = stream;
-      await new Promise<void>((resolve) => {
-        video.onloadedmetadata = () => resolve();
-      });
-      video.play();
-      await new Promise<void>((r) => setTimeout(r, 500));
-      const canvas = document.createElement("canvas");
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) throw new Error("无法创建画布");
-      ctx.drawImage(video, 0, 0);
-      const blob = await new Promise<Blob | null>((r) => canvas.toBlob((b) => r(b), "image/jpeg", 0.9));
-      stream.getTracks().forEach((t) => t.stop());
-      if (!blob) throw new Error("拍照失败");
+  const primary = house.colors.primary;
+  const secondary = house.colors.secondary;
 
-      // Convert blob to base64 and call API
-      const reader = new FileReader();
-      const base64 = await new Promise<string>((resolve) => {
-        reader.onloadend = () => resolve(reader.result as string);
-        reader.readAsDataURL(blob);
-      });
-      const photoBase64 = base64.split(',')[1];
-
-      const response = await fetch("/api/generate-image", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ house: sortedHouse?.name ?? "gryffindor", photoBase64 }),
-      });
-      const data = await response.json();
-      if (!data.success || !data.imageUrl) throw new Error(data.error || "生成失败");
-      setResult(sortedHouse!, null, data.imageUrl);
-      setPhotoGenerated(true);
-    } catch (err) {
-      setPhotoError(err instanceof Error ? err.message : "未知错误");
-    } finally {
-      setPhotoLoading(false);
-    }
-  }, [sortedHouse]);
-
-  const handleRetake = () => {
-    setPhotoGenerated(false);
-    setPhotoError(null);
-  };
-
-  if (!sortedHouse) return null;
-
-  const primary = sortedHouse.colors.primary;
-  const secondary = sortedHouse.colors.secondary;
-  const hName = sortedHouse.nameCn;
-
-  const stepTitles: Record<string, string> = {
-    report: "📜 考核报告",
-    portrait: "📸 巫师肖像",
-    badge: "🎖️ 专属徽章",
-    wand: "🪄 魔杖选择",
-  };
-
-  const stepOrder: Array<"report" | "portrait" | "badge" | "wand"> = ["report", "portrait", "badge", "wand"];
-  const currentIdx = stepOrder.indexOf(step);
+  const steps = [
+    { key: "portrait" as const, label: "巫师肖像", icon: Camera },
+    { key: "badge" as const, label: "专属徽章", icon: Shield },
+    { key: "wand" as const, label: "魔杖", icon: Wand2 },
+    { key: "report" as const, label: "评估报告", icon: Scroll },
+  ];
+  const currentStepIndex = steps.findIndex((s) => s.key === step);
 
   return (
-    <div className="fixed inset-0 z-40 bg-[#0a0e1a] overflow-hidden flex flex-col">
-      {/* Animated background particles */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+    <div
+      className="fixed inset-0 z-30 flex flex-col overflow-hidden"
+      style={{
+        background: "linear-gradient(180deg, #0a0e1a 0%, #111827 50%, #1a1025 100%)",
+      }}
+    >
+      {/* Particles */}
+      <div className="pointer-events-none fixed inset-0 overflow-hidden">
         {Array.from({ length: 30 }).map((_, i) => (
           <div
             key={i}
-            className="absolute rounded-full opacity-30 animate-particle-float"
+            className="absolute h-0.5 w-0.5 rounded-full bg-amber-300/30"
             style={{
-              width: `${2 + (i % 4)}px`,
-              height: `${2 + (i % 4)}px`,
               left: `${(i * 37) % 100}%`,
               top: `${(i * 53) % 100}%`,
-              background: i % 3 === 0 ? primary : i % 3 === 1 ? secondary : "#c9a84c",
+              animation: `particleFloat ${4 + (i % 6)}s linear infinite`,
               animationDelay: `${i * 0.3}s`,
-              animationDuration: `${6 + (i % 5)}s`,
             }}
           />
         ))}
       </div>
 
-      {/* Top step progress */}
-      <div className="relative z-10 flex items-center justify-center gap-2 pt-3 pb-2 px-4">
-        {stepOrder.map((s, i) => (
-          <div key={s} className="flex items-center gap-2">
-            <div
-              className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold transition-all duration-500 ${
-                i <= currentIdx
-                  ? "text-[#0a0e1a]"
-                  : "text-[#9ca3af] border border-[#1f2937]"
-              }`}
-              style={{
-                background: i <= currentIdx ? `linear-gradient(135deg, ${primary}, ${secondary})` : "transparent",
-                boxShadow: i === currentIdx ? `0 0 12px ${primary}66` : "none",
-              }}
-            >
-              {i < currentIdx ? "✓" : i + 1}
-              <span className="hidden sm:inline">{stepTitles[s]}</span>
-            </div>
-            {i < stepOrder.length - 1 && (
-              <div
-                className="w-6 h-0.5 rounded-full transition-all duration-500"
-                style={{ background: i < currentIdx ? primary : "#1f2937" }}
-              />
-            )}
-          </div>
-        ))}
+      {/* Top Bar */}
+      <div className="relative z-10 flex h-14 shrink-0 items-center justify-between border-b px-6"
+        style={{ borderColor: `${primary}30`, background: "rgba(10,14,26,0.8)", backdropFilter: "blur(12px)" }}>
+        <h1 className="text-sm font-bold tracking-widest" style={{ fontFamily: "Cinzel, serif", color: "#c9a84c" }}>
+          分院仪式
+        </h1>
+        <div className="flex items-center gap-1.5">
+          {steps.map((s, i) => {
+            const Icon = s.icon;
+            const active = i === currentStepIndex;
+            const done = i < currentStepIndex;
+            return (
+              <div key={s.key} className="flex items-center">
+                <div
+                  className={`flex h-6 w-6 items-center justify-center rounded-full transition-all duration-300 ${
+                    active ? "scale-110" : ""
+                  }`}
+                  style={{
+                    background: done ? primary : active ? `linear-gradient(135deg, ${primary}, ${secondary})` : "rgba(255,255,255,0.1)",
+                    border: `1.5px solid ${active ? secondary : done ? primary : "rgba(255,255,255,0.15)"}`,
+                    boxShadow: active ? `0 0 10px ${primary}60` : "none",
+                  }}
+                >
+                  <Icon className="h-3 w-3" style={{ color: active || done ? "#fff" : "#9ca3af" }} />
+                </div>
+                {i < steps.length - 1 && (
+                  <div className="mx-1 h-px w-4" style={{ background: done ? primary : "rgba(255,255,255,0.1)" }} />
+                )}
+              </div>
+            );
+          })}
+        </div>
       </div>
 
-      {/* Main content */}
-      <div className={`relative z-10 flex-1 flex items-center justify-center p-4 transition-all duration-500 ${stepEntering ? "opacity-0 scale-95" : "opacity-100 scale-100"}`}>
-        {/* ===== STEP 1: REPORT ===== */}
-        {step === "report" && (
-          <div className="w-full max-w-5xl flex flex-col lg:flex-row gap-6">
-            {/* Left: House result */}
-            <div className="flex-1 flex flex-col items-center justify-center">
-              <div
-                className="text-6xl lg:text-7xl font-bold mb-3 text-center"
+      {/* Main Content */}
+      <div
+        className={`relative z-10 flex-1 overflow-y-auto p-4 transition-all duration-400 ${
+          stepEntering ? "scale-95 opacity-0" : "scale-100 opacity-100"
+        }`}
+      >
+        {/* =================== STEP 1: PORTRAIT =================== */}
+        {step === "portrait" && (
+          <div className="mx-auto flex h-full max-w-5xl flex-col items-center justify-center gap-4">
+            {/* House Title */}
+            <div className="text-center">
+              <h2
+                className="text-4xl font-bold"
                 style={{
-                  color: "#e8dcc8",
-                  textShadow: `0 0 20px ${primary}, 0 0 40px ${primary}88, 0 0 80px ${secondary}44`,
-                  fontFamily: "'Cinzel', serif",
+                  fontFamily: "Cinzel, serif",
+                  color: primary,
+                  textShadow: `0 0 20px ${primary}60, 0 0 40px ${primary}30`,
                 }}
               >
-                {hName}
-              </div>
-              <div className="text-xl mb-1" style={{ color: secondary }}>
-                {sortedHouse.motto}
-              </div>
-              <div className="text-sm text-[#9ca3af] mb-6 max-w-md text-center">
-                {sortedHouse.description}
+                {house.name}
+              </h2>
+              <p className="mt-1 text-sm" style={{ color: secondary }}>
+                {house.motto}
+              </p>
+              <p className="mt-2 text-xs italic" style={{ color: "#9ca3af" }}>
+                "{house.hatMessage}"
+              </p>
+            </div>
+
+            {/* Portrait or Loading */}
+            <div className="relative w-full max-w-md">
+              <div
+                className="relative overflow-hidden rounded-2xl border-2"
+                style={{
+                  borderColor: `${primary}40`,
+                  boxShadow: `0 0 30px ${primary}20, inset 0 0 30px rgba(0,0,0,0.5)`,
+                }}
+              >
+                {generatedImageUrl ? (
+                  <img
+                    src={generatedImageUrl}
+                    alt="巫师肖像"
+                    className="h-auto w-full"
+                  />
+                ) : (
+                  <div
+                    className="flex aspect-[4/5] w-full flex-col items-center justify-center gap-3"
+                    style={{ background: "rgba(10,10,20,0.8)" }}
+                  >
+                    <Loader2 className="h-10 w-10 animate-spin" style={{ color: primary }} />
+                    <p className="text-sm" style={{ color: "#9ca3af" }}>
+                      分院帽正在为你施法...
+                    </p>
+                    <p className="text-xs" style={{ color: "#9ca3af" }}>
+                      巫师形象生成中，请稍候
+                    </p>
+                  </div>
+                )}
+
+                {/* Corner glow */}
+                <div className="pointer-events-none absolute inset-0">
+                  <div className="absolute left-0 top-0 h-8 w-8 border-l-2 border-t-2" style={{ borderColor: primary }} />
+                  <div className="absolute right-0 top-0 h-8 w-8 border-r-2 border-t-2" style={{ borderColor: primary }} />
+                  <div className="absolute bottom-0 left-0 h-8 w-8 border-b-2 border-l-2" style={{ borderColor: primary }} />
+                  <div className="absolute bottom-0 right-0 h-8 w-8 border-b-2 border-r-2" style={{ borderColor: primary }} />
+                </div>
               </div>
 
-              <div className="flex gap-3 mb-6">
-                {sortedHouse.traits.map((t) => (
-                  <span
-                    key={t}
-                    className="px-3 py-1 rounded-full text-xs font-bold"
+              {/* QR Code */}
+              {generatedImageUrl && qrCodeDataUrl && (
+                <div className="mt-3 flex flex-col items-center gap-1">
+                  <img src={qrCodeDataUrl} alt="扫码保存" className="h-16 w-16 rounded-lg border" style={{ borderColor: `${primary}30` }} />
+                  <span className="text-xs" style={{ color: "#9ca3af" }}>扫码保存肖像</span>
+                </div>
+              )}
+            </div>
+
+            <Button
+              onClick={() => setStep("badge")}
+              className="mt-2 flex items-center gap-2 rounded-xl px-8 py-3 text-base font-bold text-white shadow-lg"
+              style={{
+                background: `linear-gradient(135deg, ${primary}, ${secondary})`,
+                fontFamily: "Noto Serif SC, serif",
+              }}
+            >
+              下一步：专属徽章
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
+
+        {/* =================== STEP 2: BADGE =================== */}
+        {step === "badge" && (
+          <div className="mx-auto flex h-full max-w-5xl flex-col items-center justify-center gap-4">
+            <div className="text-center">
+              <h2 className="text-2xl font-bold" style={{ fontFamily: "Cinzel, serif", color: "#c9a84c" }}>
+                专属徽章
+              </h2>
+              <p className="mt-1 text-xs" style={{ color: "#9ca3af" }}>
+                你在考核中表现最出色的咒语
+              </p>
+            </div>
+
+            <div className="flex gap-6">
+              {/* Badge Card */}
+              <div
+                className="flex flex-col items-center rounded-2xl border p-4 text-center"
+                style={{
+                  width: 200,
+                  borderColor: `${primary}30`,
+                  background: "rgba(15,15,30,0.8)",
+                  backdropFilter: "blur(12px)",
+                  boxShadow: `0 0 20px ${primary}10, inset 0 0 30px rgba(0,0,0,0.3)`,
+                }}
+              >
+                <h3 className="mb-2 text-base font-bold" style={{ color: "#c9a84c", fontFamily: "Cinzel, serif" }}>
+                  专属徽章
+                </h3>
+                <div className="flex h-[120px] w-[120px] items-center justify-center rounded-xl border"
+                  style={{ borderColor: `${primary}30`, background: "rgba(0,0,0,0.3)" }}>
+                  {badgeUrl ? (
+                    <img
+                      src={badgeUrl}
+                      alt={bestSpell?.spell.nameCn ?? "徽章"}
+                      className="h-full w-full object-contain"
+                      onError={(e) => {
+                        const el = e.currentTarget;
+                        el.style.display = "none";
+                        const parent = el.parentElement;
+                        if (parent) {
+                          parent.innerHTML = `<span style="font-size:48px">🎖️</span>`;
+                        }
+                      }}
+                    />
+                  ) : (
+                    <span className="text-5xl">🎖️</span>
+                  )}
+                </div>
+                <p className="mt-2 text-sm font-bold" style={{ color: "#e8dcc8" }}>
+                  {bestSpell?.spell.nameCn ?? "未知咒语"}
+                </p>
+                <p className="text-xs" style={{ color: "#9ca3af" }}>
+                  {bestSpell?.spell.incantationCn ?? ""}
+                </p>
+
+                {!badgeForged ? (
+                  <button
+                    onClick={() => setBadgeForged(true)}
+                    className="mt-3 w-full rounded-lg px-4 py-2 text-xs font-bold text-white transition-all hover:brightness-110"
                     style={{
-                      background: `${primary}22`,
-                      color: secondary,
-                      border: `1px solid ${primary}44`,
+                      background: `linear-gradient(135deg, ${primary}, ${secondary})`,
                     }}
                   >
-                    {t}
-                  </span>
-                ))}
+                    1 加隆 · 铸造
+                  </button>
+                ) : (
+                  <p className="mt-3 text-xs" style={{ color: "#4ade80" }}>
+                    徽章已铸成！
+                  </p>
+                )}
               </div>
+            </div>
 
-              <div
-                className="text-lg italic text-center max-w-md mb-6 px-4 py-3 rounded-lg border"
-                style={{
-                  color: "#e8dcc8",
-                  borderColor: `${primary}44`,
-                  background: `${primary}11`,
-                }}
-              >
-                "{sortedHouse.hatMessage}"
-              </div>
-
+            <div className="flex gap-3">
               <Button
+                variant="outline"
                 onClick={() => setStep("portrait")}
-                className="px-8 py-3 text-base font-bold rounded-lg animate-pulse-glow"
+                className="rounded-xl border-amber-500/30 px-6 py-2 text-sm text-amber-300 hover:bg-amber-500/10"
+              >
+                上一步
+              </Button>
+              <Button
+                onClick={() => setStep("wand")}
+                className="flex items-center gap-2 rounded-xl px-8 py-3 text-base font-bold text-white shadow-lg"
                 style={{
-                  background: `linear-gradient(135deg, ${primary}, ${secondary})`,
-                  color: "#0a0e1a",
+                  background: "linear-gradient(135deg, #c9a84c, #d4a017)",
+                  fontFamily: "Noto Serif SC, serif",
                 }}
               >
-                <Sparkles className="w-5 h-5 mr-2" />
-                下一步：生成巫师肖像
-                <ChevronRight className="w-5 h-5 ml-1" />
+                下一步：魔杖
+                <ChevronRight className="h-4 w-4" />
               </Button>
             </div>
-
-            {/* Right: Score cards */}
-            <div className="lg:w-80 flex flex-col gap-4 justify-center">
-              <div className="rounded-xl border p-4" style={{ borderColor: `${primary}33`, background: "rgba(15,15,30,0.7)", backdropFilter: "blur(10px)" }}>
-                <div className="text-xs text-[#9ca3af] mb-3 uppercase tracking-wider">念咒考核</div>
-                {level1Result?.spells.map((s, i) => (
-                  <div key={i} className="flex items-center justify-between mb-2 py-1.5 border-b border-[#1f2937] last:border-0">
-                    <div className="flex items-center gap-2">
-                      <Star className="w-3.5 h-3.5" style={{ color: secondary }} />
-                      <span className="text-sm text-[#e8dcc8]">{s.spell.nameCn}</span>
-                    </div>
-                    <div className="flex gap-3">
-                      <span className="text-xs text-[#9ca3af]">准确度 {s.accuracy}%</span>
-                      <span className="text-xs text-[#9ca3af]">气势 {s.power}%</span>
-                    </div>
-                  </div>
-                ))}
-                <div className="flex items-center justify-between mt-3 pt-2 border-t border-[#1f2937]">
-                  <span className="text-sm font-bold" style={{ color: secondary }}>综合得分</span>
-                  <span className="text-lg font-bold" style={{ color: primary }}>{Math.round(l1Score)}</span>
-                </div>
-              </div>
-
-              <div className="rounded-xl border p-4" style={{ borderColor: `${primary}33`, background: "rgba(15,15,30,0.7)", backdropFilter: "blur(10px)" }}>
-                <div className="text-xs text-[#9ca3af] mb-3 uppercase tracking-wider">施咒考核</div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-[#e8dcc8]">图案匹配</span>
-                  <span className="text-sm font-bold" style={{ color: primary }}>{Math.round(level2Result?.score ?? 0)}%</span>
-                </div>
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-[#e8dcc8]">轨迹精度</span>
-                  <span className="text-sm font-bold" style={{ color: primary }}>{Math.round(level2Result?.precision ?? 0)}%</span>
-                </div>
-                <div className="flex items-center justify-between mt-3 pt-2 border-t border-[#1f2937]">
-                  <span className="text-sm font-bold" style={{ color: secondary }}>综合得分</span>
-                  <span className="text-lg font-bold" style={{ color: primary }}>{Math.round(l2Score)}</span>
-                </div>
-              </div>
-
-              <div className="rounded-xl border p-4 text-center" style={{ borderColor: `${primary}55`, background: `linear-gradient(135deg, ${primary}22, ${secondary}11)` }}>
-                <div className="text-xs text-[#9ca3af] mb-1 uppercase tracking-wider">总评</div>
-                <div className="text-4xl font-bold" style={{ color: secondary, textShadow: `0 0 20px ${primary}88` }}>
-                  {totalScore}
-                </div>
-                <div className="text-xs text-[#9ca3af] mt-1">
-                  {totalScore >= 80 ? "杰出" : totalScore >= 60 ? "优秀" : totalScore >= 40 ? "良好" : "尚需磨练"}
-                </div>
-              </div>
-            </div>
           </div>
         )}
 
-        {/* ===== STEP 2: PORTRAIT ===== */}
-        {step === "portrait" && (
-          <div className="w-full max-w-4xl flex flex-col items-center">
-            <h2 className="text-2xl font-bold mb-2 text-[#e8dcc8]" style={{ fontFamily: "'Cinzel', serif", textShadow: "0 0 12px #c9a84c88" }}>
-              巫师肖像
-            </h2>
-            <p className="text-sm text-[#9ca3af] mb-6">分院帽将为你的照片施展幻身咒，呈现你身着学院服饰的英姿</p>
-
-            {!photoGenerated ? (
-              <div className="flex flex-col items-center gap-4">
-                <div
-                  className="w-64 h-64 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-3"
-                  style={{ borderColor: `${primary}55`, background: `${primary}0d` }}
-                >
-                  <Camera className="w-12 h-12" style={{ color: `${primary}88` }} />
-                  <span className="text-sm text-[#9ca3af]">点击下方按钮拍照</span>
-                </div>
-                {photoError && (
-                  <div className="text-sm text-red-400 bg-red-950/50 px-4 py-2 rounded-lg">{photoError}</div>
-                )}
-                <div className="flex gap-3">
-                  <Button
-                    onClick={handleTakePhoto}
-                    disabled={photoLoading}
-                    className="px-6 py-3 text-base font-bold rounded-lg"
-                    style={{
-                      background: `linear-gradient(135deg, ${primary}, ${secondary})`,
-                      color: "#0a0e1a",
-                    }}
-                  >
-                    {photoLoading ? (
-                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                    ) : (
-                      <Camera className="w-5 h-5 mr-2" />
-                    )}
-                    {photoLoading ? "施展幻身咒中..." : "拍照"}
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center gap-4">
-                {generatedImageUrl ? (
-                  <div className="flex flex-col items-center gap-4">
-                    <div className="relative rounded-xl overflow-hidden border-2" style={{ borderColor: `${primary}66`, boxShadow: `0 0 40px ${primary}33` }}>
-                      <img
-                        src={generatedImageUrl}
-                        alt="巫师肖像"
-                        className="w-full max-w-md object-contain"
-                        style={{ maxHeight: "50vh" }}
-                      />
-                      {/* QR Code overlay */}
-                      {qrCodeDataUrl && (
-                        <div
-                          className="absolute bottom-3 left-3 p-2 rounded-lg flex flex-col items-center gap-1"
-                          style={{ background: "rgba(10,14,26,0.85)", backdropFilter: "blur(8px)" }}
-                        >
-                          <img src={qrCodeDataUrl} alt="扫码保存" className="w-24 h-24" />
-                          <span className="text-[10px] text-[#9ca3af]">手机扫码保存</span>
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex gap-3">
-                      <Button
-                        variant="outline"
-                        onClick={handleRetake}
-                        className="rounded-lg border-[#374151] text-[#e8dcc8] hover:bg-[#1f2937]"
-                      >
-                        <RotateCcw className="w-4 h-4 mr-2" />
-                        重拍
-                      </Button>
-                      <Button
-                        onClick={() => setStep("badge")}
-                        className="px-6 py-3 text-base font-bold rounded-lg"
-                        style={{
-                          background: `linear-gradient(135deg, ${primary}, ${secondary})`,
-                          color: "#0a0e1a",
-                        }}
-                      >
-                        <ChevronRight className="w-5 h-5 mr-1" />
-                        下一步：专属徽章
-                      </Button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center gap-3">
-                    <div className="w-16 h-16 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: primary }} />
-                    <p className="text-sm text-[#9ca3af]">正在施展幻身咒...</p>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* ===== STEP 3: BADGE ===== */}
-        {step === "badge" && (
-          <div className="w-full max-w-2xl flex flex-col items-center">
-            <h2 className="text-2xl font-bold mb-2 text-[#e8dcc8]" style={{ fontFamily: "'Cinzel', serif", textShadow: "0 0 12px #c9a84c88" }}>
-              专属徽章
-            </h2>
-            <p className="text-sm text-[#9ca3af] mb-6">
-              以你表现最出色的咒语「{bestSpell?.spell.nameCn ?? "未知"}」为灵感铸造
-            </p>
-
-            <div className="flex flex-col items-center gap-6">
-              {badgeUrl ? (
-                <div
-                  className="relative rounded-2xl overflow-hidden border-2 p-2"
-                  style={{
-                    borderColor: `${primary}66`,
-                    boxShadow: `0 0 40px ${primary}33, inset 0 0 60px ${primary}11`,
-                    background: "rgba(15,15,30,0.6)",
-                  }}
-                >
-                  <img
-                    src={badgeUrl}
-                    alt={`${bestSpell?.spell.nameCn ?? ""}徽章`}
-                    className="w-56 h-56 object-contain"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).style.display = "none";
-                      const parent = (e.target as HTMLImageElement).parentElement;
-                      if (parent) {
-                        const fallback = document.createElement("div");
-                        fallback.className = "w-56 h-56 flex items-center justify-center text-6xl";
-                        fallback.textContent = sortedHouse.emoji;
-                        parent.appendChild(fallback);
-                      }
-                    }}
-                  />
-                </div>
-              ) : (
-                <div className="w-56 h-56 rounded-2xl border flex items-center justify-center text-6xl" style={{ borderColor: `${primary}44` }}>
-                  {sortedHouse.emoji}
-                </div>
-              )}
-
-              <div className="text-center">
-                <div className="text-lg font-bold text-[#e8dcc8] mb-1">{bestSpell?.spell.nameCn} 徽章</div>
-                <div className="text-sm text-[#9ca3af]">金属珐琅 · 限定版</div>
-              </div>
-
-              {!badgeForged ? (
-                <Button
-                  onClick={() => setBadgeForged(true)}
-                  className="px-6 py-3 text-base font-bold rounded-lg animate-pulse-glow"
-                  style={{
-                    background: `linear-gradient(135deg, ${primary}, ${secondary})`,
-                    color: "#0a0e1a",
-                  }}
-                >
-                  <Shield className="w-5 h-5 mr-2" />
-                  1 加隆 · 铸造
-                </Button>
-              ) : (
-                <div className="flex flex-col items-center gap-2">
-                  <div className="text-sm font-bold" style={{ color: secondary }}>✨ 徽章已铸成！古灵阁已扣款。</div>
-                  <Button
-                    onClick={() => setStep("wand")}
-                    className="px-6 py-3 text-base font-bold rounded-lg"
-                    style={{
-                      background: `linear-gradient(135deg, ${primary}, ${secondary})`,
-                      color: "#0a0e1a",
-                    }}
-                  >
-                    <ChevronRight className="w-5 h-5 mr-1" />
-                    下一步：魔杖选择
-                  </Button>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* ===== STEP 4: WAND ===== */}
+        {/* =================== STEP 3: WAND =================== */}
         {step === "wand" && (
-          <div className="w-full max-w-4xl flex flex-col lg:flex-row items-center gap-8">
-            {/* Wand image */}
-            <div className="flex flex-col items-center gap-4">
-              <div
-                className="relative rounded-2xl overflow-hidden border-2 p-4"
-                style={{
-                  borderColor: `${primary}66`,
-                  boxShadow: `0 0 40px ${primary}33`,
-                  background: "rgba(15,15,30,0.6)",
-                }}
-              >
-                <img src="/wand.png" alt="魔杖" className="w-32 h-80 object-contain" />
-              </div>
-            </div>
-
-            {/* Wand info */}
-            <div className="flex-1 flex flex-col items-center lg:items-start gap-4">
-              <h2 className="text-2xl font-bold text-[#e8dcc8]" style={{ fontFamily: "'Cinzel', serif", textShadow: "0 0 12px #c9a84c88" }}>
+          <div className="mx-auto flex h-full max-w-5xl flex-col items-center justify-center gap-4">
+            <div className="text-center">
+              <h2 className="text-2xl font-bold" style={{ fontFamily: "Cinzel, serif", color: "#c9a84c" }}>
                 你的魔杖
               </h2>
+              <p className="mt-1 text-xs" style={{ color: "#9ca3af" }}>
+                分院帽为你匹配的专属魔杖
+              </p>
+            </div>
 
-              {wand ? (
-                <div className="w-full max-w-sm flex flex-col gap-3">
-                  <div className="flex items-center justify-between py-2 border-b border-[#1f2937]">
-                    <span className="text-sm text-[#9ca3af]">杖木</span>
-                    <span className="text-base font-bold text-[#e8dcc8]">{wand.woodCn}</span>
-                  </div>
-                  <div className="flex items-center justify-between py-2 border-b border-[#1f2937]">
-                    <span className="text-sm text-[#9ca3af]">杖芯</span>
-                    <span className="text-base font-bold text-[#e8dcc8]">{wand.coreCn}</span>
-                  </div>
-                  <div className="flex items-center justify-between py-2 border-b border-[#1f2937]">
-                    <span className="text-sm text-[#9ca3af]">长度</span>
-                    <span className="text-base font-bold text-[#e8dcc8]">{wand.length}</span>
-                  </div>
-                  <div className="flex items-center justify-between py-2 border-b border-[#1f2937]">
-                    <span className="text-sm text-[#9ca3af]">弹性</span>
-                    <span className="text-base font-bold text-[#e8dcc8]">{wand.flexibility}</span>
-                  </div>
-                  <div
-                    className="text-sm text-[#e8dcc8] leading-relaxed p-3 rounded-lg"
-                    style={{ background: `${primary}11`, border: `1px solid ${primary}33` }}
-                  >
-                    {wand.description}
-                  </div>
-                </div>
-              ) : (
-                <div className="text-sm text-[#9ca3af]">暂无魔杖推荐</div>
-              )}
+            <div
+              className="flex w-full max-w-md flex-col items-center rounded-2xl border p-5 text-center"
+              style={{
+                borderColor: `${primary}30`,
+                background: "rgba(15,15,30,0.8)",
+                backdropFilter: "blur(12px)",
+                boxShadow: `0 0 20px ${primary}10, inset 0 0 30px rgba(0,0,0,0.3)`,
+              }}
+            >
+              <div className="mb-3 flex items-center gap-3">
+                <div className="h-px flex-1" style={{ background: `linear-gradient(90deg, transparent, ${primary}40)` }} />
+                <Sparkles className="h-4 w-4" style={{ color: primary }} />
+                <div className="h-px flex-1" style={{ background: `linear-gradient(90deg, ${primary}40, transparent)` }} />
+              </div>
+
+              <div className="relative mb-3 flex h-[120px] w-[120px] items-center justify-center">
+                <img
+                  src="/wand.png"
+                  alt="魔杖"
+                  className="h-20 w-20 object-contain drop-shadow-lg"
+                  style={{ filter: `drop-shadow(0 0 10px ${primary}60)` }}
+                />
+              </div>
+
+              <p className="text-lg font-bold" style={{ color: "#e8dcc8", fontFamily: "Cinzel, serif" }}>
+                {wand?.wood ?? "神秘"} · {wand?.core ?? "未知杖芯"}
+              </p>
+              <p className="text-xs" style={{ color: "#9ca3af" }}>
+                长度: {wand?.length ?? "未知"} · 弹性: {wand?.flexibility ?? "未知"}
+              </p>
+              <p className="mt-2 text-xs leading-relaxed" style={{ color: "#9ca3af" }}>
+                {wand?.description ?? "这根魔杖选择了你..."}
+              </p>
 
               {!wandBought ? (
-                <Button
+                <button
                   onClick={() => setWandBought(true)}
-                  className="px-6 py-3 text-base font-bold rounded-lg animate-pulse-glow"
+                  className="mt-4 w-full rounded-lg px-4 py-2 text-sm font-bold text-white transition-all hover:brightness-110"
                   style={{
                     background: `linear-gradient(135deg, ${primary}, ${secondary})`,
-                    color: "#0a0e1a",
                   }}
                 >
-                  <Wand2 className="w-5 h-5 mr-2" />
-                  {wand?.price ?? 11} 加隆 · 购买
-                </Button>
+                  11 加隆 · 购买
+                </button>
               ) : (
-                <div className="flex flex-col items-center lg:items-start gap-3">
-                  <div className="text-sm font-bold" style={{ color: secondary }}>
-                    ✨ 魔杖已选中！奥利凡德记下了你的选择。
-                  </div>
-                  <Button
-                    onClick={resetGame}
-                    className="px-6 py-3 text-base font-bold rounded-lg"
-                    style={{
-                      background: `linear-gradient(135deg, ${primary}, ${secondary})`,
-                      color: "#0a0e1a",
-                    }}
-                  >
-                    <RotateCcw className="w-5 h-5 mr-2" />
-                    再来一次分院仪式
-                  </Button>
-                </div>
+                <p className="mt-4 text-sm" style={{ color: "#4ade80" }}>
+                  奥利凡德已为你包好魔杖！
+                </p>
               )}
+            </div>
+
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                onClick={() => setStep("badge")}
+                className="rounded-xl border-amber-500/30 px-6 py-2 text-sm text-amber-300 hover:bg-amber-500/10"
+              >
+                上一步
+              </Button>
+              <Button
+                onClick={() => setStep("report")}
+                className="flex items-center gap-2 rounded-xl px-8 py-3 text-base font-bold text-white shadow-lg"
+                style={{
+                  background: "linear-gradient(135deg, #c9a84c, #d4a017)",
+                  fontFamily: "Noto Serif SC, serif",
+                }}
+              >
+                下一步：评估报告
+                <ChevronRight className="h-4 w-4" />
+              </Button>
             </div>
           </div>
         )}
+
+        {/* =================== STEP 4: REPORT =================== */}
+        {step === "report" && (
+          <div className="mx-auto flex h-full max-w-5xl flex-col items-center justify-center gap-4">
+            <div className="text-center">
+              <h2 className="text-2xl font-bold" style={{ fontFamily: "Cinzel, serif", color: "#c9a84c" }}>
+                评估报告
+              </h2>
+              <p className="mt-1 text-xs" style={{ color: "#9ca3af" }}>
+                你在分院仪式中的全部表现
+              </p>
+            </div>
+
+            <div className="grid w-full max-w-3xl grid-cols-2 gap-4">
+              {/* Level 1 */}
+              <div
+                className="rounded-2xl border p-4"
+                style={{
+                  borderColor: `${primary}30`,
+                  background: "rgba(15,15,30,0.8)",
+                  backdropFilter: "blur(12px)",
+                }}
+              >
+                <h3 className="mb-3 text-base font-bold" style={{ color: "#c9a84c", fontFamily: "Cinzel, serif" }}>
+                  念咒考核
+                </h3>
+                <div className="space-y-3">
+                  <ScoreBar label="准确度" value={accuracy} max={100} color="#60a5fa" icon={<Eye className="h-3.5 w-3.5" />} />
+                  <ScoreBar label="气势" value={power} max={100} color="#f87171" icon={<Flame className="h-3.5 w-3.5" />} />
+                </div>
+                <div className="mt-3 flex items-center justify-between text-xs" style={{ color: "#9ca3af" }}>
+                  <span>咒语倾向</span>
+                  <span>
+                    光明:{Math.round(lightAffinity)} 黑暗:{Math.round(darkAffinity)}
+                  </span>
+                </div>
+              </div>
+
+              {/* Level 2 */}
+              <div
+                className="rounded-2xl border p-4"
+                style={{
+                  borderColor: `${primary}30`,
+                  background: "rgba(15,15,30,0.8)",
+                  backdropFilter: "blur(12px)",
+                }}
+              >
+                <h3 className="mb-3 text-base font-bold" style={{ color: "#c9a84c", fontFamily: "Cinzel, serif" }}>
+                  画符考核
+                </h3>
+                <div className="space-y-3">
+                  <ScoreBar label="匹配度" value={level2Result?.score ?? 0} max={100} color="#a78bfa" icon={<Shield className="h-3.5 w-3.5" />} />
+                  <ScoreBar label="精准度" value={level2Result?.precision ?? 0} max={100} color="#34d399" icon={<Star className="h-3.5 w-3.5" />} />
+                </div>
+              </div>
+            </div>
+
+            {/* Total Score */}
+            <div
+              className="flex w-full max-w-md items-center justify-between rounded-xl border px-6 py-3"
+              style={{ borderColor: `${primary}40`, background: "rgba(15,15,30,0.6)" }}
+            >
+              <span className="text-sm font-bold" style={{ color: "#e8dcc8" }}>
+                总分
+              </span>
+              <span className="text-2xl font-bold" style={{ color: primary, textShadow: `0 0 20px ${primary}60` }}>
+                {totalScore}
+              </span>
+            </div>
+
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                onClick={() => setStep("wand")}
+                className="rounded-xl border-amber-500/30 px-6 py-2 text-sm text-amber-300 hover:bg-amber-500/10"
+              >
+                上一步
+              </Button>
+              <Button
+                onClick={resetGame}
+                className="flex items-center gap-2 rounded-xl px-8 py-3 text-base font-bold text-white shadow-lg"
+                style={{
+                  background: "linear-gradient(135deg, #c9a84c, #d4a017)",
+                  fontFamily: "Noto Serif SC, serif",
+                }}
+              >
+                <RotateCcw className="h-4 w-4" />
+                再来一次
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ScoreBar({ label, value, max, color, icon }: { label: string; value: number; max: number; color: string; icon: React.ReactNode }) {
+  const pct = Math.min(100, Math.max(0, (value / max) * 100));
+  return (
+    <div>
+      <div className="mb-1 flex items-center justify-between text-xs">
+        <span className="flex items-center gap-1" style={{ color: "#9ca3af" }}>
+          {icon} {label}
+        </span>
+        <span className="font-bold" style={{ color }}>
+          {Math.round(value)}
+        </span>
+      </div>
+      <div className="h-2 w-full overflow-hidden rounded-full" style={{ background: "rgba(255,255,255,0.1)" }}>
+        <div
+          className="h-full rounded-full transition-all duration-1000"
+          style={{ width: `${pct}%`, background: `linear-gradient(90deg, ${color}, ${color}80)` }}
+        />
       </div>
     </div>
   );
