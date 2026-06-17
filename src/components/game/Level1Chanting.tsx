@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { useGame, type Level1Result, type SpellResult } from './GameProvider';
 import { pickThreeSpells } from '@/lib/spells';
+import { matchSpell } from '@/lib/spellMatch';
 import type { Spell, SpellCategory } from '@/lib/spells';
 
 type Phase = 'ready' | 'countdown' | 'listening' | 'transition' | 'done';
@@ -22,6 +23,7 @@ export default function Level1Chanting() {
   const [countdown, setCountdown] = useState(0);
   const [spellResults, setSpellResults] = useState<SpellResult[]>([]);
   const [allDone, setAllDone] = useState(false);
+  const [matchDetail, setMatchDetail] = useState<string>(''); // 匹配详情
 
   // --- Refs for mutable values accessed inside callbacks ---
   const currentSpellIndexRef = useRef(0);
@@ -89,17 +91,27 @@ export default function Level1Chanting() {
   // ---- Calculate a single spell's result ----
   const calculateSpellResult = useCallback((spell: Spell): SpellResult => {
     const samples = volumeSamplesRef.current;
-    const transcriptLower = transcriptRef.current.toLowerCase();
+    const spokenText = transcriptRef.current;
 
-    const spellWords = spell.name.toLowerCase().split(' ');
-    let matchedWords = 0;
-    for (const word of spellWords) {
-      if (transcriptLower.includes(word)) matchedWords++;
+    // === 准确度：基于中文拼音模糊匹配 ===
+    const accuracy = matchSpell(spokenText, spell.nameCn, spell.aliases);
+
+    // 匹配详情（用于展示）
+    if (accuracy >= 90) {
+      setMatchDetail('完美匹配!');
+    } else if (accuracy >= 70) {
+      setMatchDetail('发音接近，基本正确');
+    } else if (accuracy >= 50) {
+      setMatchDetail('有些偏差，但分院帽听出了你的意思');
+    } else if (accuracy >= 30) {
+      setMatchDetail('发音不太对，但勉强辨认');
+    } else if (spokenText.length > 0) {
+      setMatchDetail('分院帽听不清你在念什么...');
+    } else {
+      setMatchDetail('没有检测到语音');
     }
-    const accuracy = spellWords.length > 0
-      ? Math.round((matchedWords / spellWords.length) * 70 + 30 * (transcriptLower.length > 0 ? 1 : 0))
-      : 50;
 
+    // === 气势：基于音量分析 ===
     const avgVolume = samples.length > 0
       ? samples.reduce((a, b) => a + b, 0) / samples.length
       : 0.3;
@@ -198,12 +210,13 @@ export default function Level1Chanting() {
     setVolumeHistory([]);
     setTranscript('');
     setTimeLeft(TIME_PER_SPELL);
+    setMatchDetail('');
 
-    // Speech recognition
+    // Speech recognition — 使用中文识别
     const SpeechRecognitionAPI = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (SpeechRecognitionAPI) {
       const recognition = new SpeechRecognitionAPI();
-      recognition.lang = 'en-US';
+      recognition.lang = 'zh-CN'; // 改为中文识别
       recognition.interimResults = true;
       recognition.continuous = true;
       recognition.maxAlternatives = 3;
@@ -211,7 +224,11 @@ export default function Level1Chanting() {
       recognition.onresult = (event: SpeechRecognitionEvent) => {
         let text = '';
         for (let i = event.resultIndex; i < event.results.length; i++) {
-          text += event.results[i][0].transcript;
+          // 尝试多个候选结果，取最佳匹配
+          const result = event.results[i];
+          if (result.length > 0) {
+            text += result[0].transcript;
+          }
         }
         transcriptRef.current = text;
         setTranscript(text);
@@ -407,23 +424,25 @@ export default function Level1Chanting() {
           <p className="text-sm mb-1" style={{ color: '#9ca3af' }}>
             {currentSpellIndex + 1} / {spells.length} — 念出这个咒语
           </p>
+          {/* 中文咒语名 — 大字显示，这是用户要念的 */}
           <h2
             className="text-4xl sm:text-5xl font-bold mb-2 tracking-widest"
             style={{
-              fontFamily: "'Cinzel Decorative', 'Cinzel', serif",
+              fontFamily: "'Noto Serif SC', serif",
               color: currentSpell.category === 'unforgivable' ? '#ef4444'
                 : currentSpell.category === 'dark' ? '#8b5cf6'
                 : '#c9a84c',
               textShadow: `0 0 15px ${getCategoryColor(currentSpell.category)}60`,
             }}
           >
-            {currentSpell.name}
-          </h2>
-          <p className="text-lg mb-1" style={{ color: '#e8dcc8', fontFamily: "'Noto Serif SC', serif" }}>
             {currentSpell.nameCn}
+          </h2>
+          {/* 拉丁原名 — 小字辅助 */}
+          <p className="text-sm mb-1" style={{ color: '#9ca3af', fontFamily: "'Cinzel Decorative', serif" }}>
+            {currentSpell.name}
           </p>
           <p className="text-sm" style={{ color: '#9ca3af' }}>
-            发音: [{currentSpell.pronunciation}]
+            中文发音: [{currentSpell.incantationCn}]
           </p>
           <p className="text-sm mt-2" style={{ color: '#9ca3af' }}>
             {currentSpell.description}
@@ -500,11 +519,18 @@ export default function Level1Chanting() {
         </div>
       )}
 
-      {/* Transcript */}
+      {/* Transcript — 显示语音识别结果 */}
       {phase === 'listening' && transcript && (
-        <p className="mb-4 text-lg" style={{ color: '#e8dcc8' }}>
-          你说: &ldquo;{transcript}&rdquo;
-        </p>
+        <div className="mb-2">
+          <p className="text-lg" style={{ color: '#e8dcc8' }}>
+            你说: &ldquo;{transcript}&rdquo;
+          </p>
+          {matchDetail && (
+            <p className="text-xs mt-1" style={{ color: '#c9a84c' }}>
+              {matchDetail}
+            </p>
+          )}
+        </div>
       )}
 
       {/* Listening indicator */}
@@ -554,7 +580,10 @@ export default function Level1Chanting() {
       {phase === 'ready' && (
         <div className="flex flex-col items-center gap-3">
           <p className="text-sm" style={{ color: '#9ca3af' }}>
-            分院帽将依次赐予你 {spells.length} 个咒语，每个限时 {TIME_PER_SPELL} 秒
+            分院帽将依次赐予你 {spells.length} 个咒语，用中文大声念出来
+          </p>
+          <p className="text-xs" style={{ color: '#9ca3af' }}>
+            每个限时 {TIME_PER_SPELL} 秒 · 同音字也能识别
           </p>
           <button
             onClick={handleStart}
@@ -591,9 +620,9 @@ export default function Level1Chanting() {
         >
           <h3
             className="text-2xl font-bold mb-4"
-            style={{ fontFamily: "'Cinzel', serif", color: '#c9a84c' }}
+            style={{ fontFamily: "'Noto Serif SC', serif", color: '#c9a84c' }}
           >
-            Spell Assessment
+            咒语考核报告
           </h3>
 
           {/* Individual spell results */}
@@ -617,8 +646,8 @@ export default function Level1Chanting() {
                   </span>
                 </div>
                 <div className="flex gap-4 text-xs" style={{ color: '#9ca3af' }}>
-                  <span>准确度: <b style={{ color: '#e8dcc8' }}>{sr.accuracy}</b></span>
-                  <span>气势: <b style={{ color: '#e8dcc8' }}>{sr.power}</b></span>
+                  <span>准确度: <b style={{ color: sr.accuracy >= 70 ? '#22c55e' : sr.accuracy >= 40 ? '#c9a84c' : '#ef4444' }}>{sr.accuracy}</b></span>
+                  <span>气势: <b style={{ color: sr.power >= 70 ? '#22c55e' : sr.power >= 40 ? '#c9a84c' : '#ef4444' }}>{sr.power}</b></span>
                 </div>
               </div>
             ))}
@@ -679,15 +708,13 @@ function ScoreBar({ label, value, barColor }: { label: string; value: number; ba
         <span style={{ color: '#9ca3af' }}>{label}</span>
         <span style={{ color: getColor(value) }}>{value}</span>
       </div>
-      <div
-        className="h-2 rounded-full overflow-hidden"
-        style={{ backgroundColor: 'rgba(255,255,255,0.1)' }}
-      >
+      <div className="h-2 rounded-full overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.1)' }}>
         <div
           className="h-full rounded-full transition-all duration-500"
           style={{
             width: `${value}%`,
             backgroundColor: getColor(value),
+            boxShadow: `0 0 8px ${getColor(value)}60`,
           }}
         />
       </div>
