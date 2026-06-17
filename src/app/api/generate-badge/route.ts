@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { ImageGenerationClient } from 'coze-coding-dev-sdk';
+import { ImageGenerationClient, Config, HeaderUtils } from 'coze-coding-dev-sdk';
 
 // Each spell has a unique badge design prompt
 const SPELL_BADGE_PROMPTS: Record<string, string> = {
@@ -41,7 +41,10 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { spellName } = body as { spellName?: string };
 
-    const client = new ImageGenerationClient();
+    const customHeaders = HeaderUtils.extractForwardHeaders(request.headers);
+    const config = new Config();
+    const client = new ImageGenerationClient(config, customHeaders);
+
     const prompt = SPELL_BADGE_PROMPTS[spellName || ''] || FALLBACK_BADGE_PROMPT;
 
     const response = await client.generate({
@@ -49,17 +52,13 @@ export async function POST(request: NextRequest) {
       size: '2K',
     });
 
-    const results = Array.isArray(response) ? response : ((response as unknown as Record<string, unknown>).data as unknown[]) || [];
-    if (!results || results.length === 0) {
-      return NextResponse.json({ error: '徽章生成失败' }, { status: 500 });
-    }
-    const result = results[0] as Record<string, unknown>;
-
-    const badgeUrl = result.image_url as string;
-    if (!badgeUrl) {
-      return NextResponse.json({ error: '徽章生成失败' }, { status: 500 });
+    const helper = client.getResponseHelper(response);
+    if (!helper.success || helper.imageUrls.length === 0) {
+      const errMsg = helper.errorMessages.join('; ') || '徽章生成失败';
+      return NextResponse.json({ error: errMsg }, { status: 500 });
     }
 
+    const badgeUrl = helper.imageUrls[0];
     return NextResponse.json({ badgeUrl });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Unknown error';

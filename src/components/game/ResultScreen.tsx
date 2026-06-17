@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
+import QRCode from 'qrcode';
 import { useGame } from './GameProvider';
 import { HOUSES, type HouseName, type SortingResult } from '@/lib/sorting-hat';
 import type { SpellCategory } from '@/lib/spells';
@@ -27,6 +28,8 @@ export default function ResultScreen() {
   const [showBadge, setShowBadge] = useState(false);
   const [badgeUrl, setBadgeUrl] = useState<string | null>(null);
   const [badgeLoading, setBadgeLoading] = useState(false);
+  const badgeFetchingRef = useRef(false);
+  const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string | null>(null);
   const [showWand, setShowWand] = useState(false);
   const [wandPurchased, setWandPurchased] = useState(false);
 
@@ -179,8 +182,9 @@ export default function ResultScreen() {
 
   // Fetch AI-generated badge when badge section appears
   useEffect(() => {
-    if (!showBadge || badgeUrl || badgeLoading || !sortedHouse) return;
+    if (!showBadge || badgeUrl || !sortedHouse || badgeFetchingRef.current) return;
     const fetchBadge = async () => {
+      badgeFetchingRef.current = true;
       setBadgeLoading(true);
       try {
         const res = await fetch('/api/generate-badge', {
@@ -197,7 +201,19 @@ export default function ResultScreen() {
       }
     };
     fetchBadge();
-  }, [showBadge, badgeUrl, badgeLoading, sortedHouse, bestCategory]);
+  }, [showBadge, badgeUrl, sortedHouse, bestSpellData]);
+
+  // Generate QR code for the generated image URL
+  useEffect(() => {
+    if (!generatedImageUrl || qrCodeDataUrl) return;
+    QRCode.toDataURL(generatedImageUrl, {
+      width: 140,
+      margin: 1,
+      color: { dark: '#c9a84c', light: '#0a0e1a' },
+    }).then(setQrCodeDataUrl).catch(() => {
+      // QR generation failed, silently ignore
+    });
+  }, [generatedImageUrl, qrCodeDataUrl]);
 
   const totalScore = (() => {
     if (!level1Result || !level2Result) return 0;
@@ -619,9 +635,25 @@ export default function ResultScreen() {
                     alt="Your wizard portrait"
                     className="w-full"
                   />
-                  <p className="text-xs py-2" style={{ color: '#9ca3af', backgroundColor: 'rgba(15,15,30,0.8)' }}>
-                    AI 生成的{house.nameCn}巫师史诗场景
-                  </p>
+                  <div
+                    className="flex items-center justify-between px-4 py-2"
+                    style={{ backgroundColor: 'rgba(15,15,30,0.9)' }}
+                  >
+                    <p className="text-xs" style={{ color: '#9ca3af' }}>
+                      AI 生成的{house.nameCn}巫师史诗场景
+                    </p>
+                    {qrCodeDataUrl && (
+                      <div className="flex items-center gap-2">
+                        <p className="text-xs" style={{ color: '#9ca3af' }}>扫码保存</p>
+                        <img
+                          src={qrCodeDataUrl}
+                          alt="扫码保存图片"
+                          className="w-10 h-10"
+                          style={{ imageRendering: 'pixelated' }}
+                        />
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
 
