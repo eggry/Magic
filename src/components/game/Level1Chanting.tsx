@@ -251,7 +251,7 @@ export default function Level1Chanting() {
             if (accuracy >= 40) {
               autoSubmittedRef.current = true;
               // 短暂延迟让用户看到识别结果，然后自动提交
-              setMatchDetail(accuracy >= 70 ? '匹配成功! 自动进入下一咒语...' : '基本匹配，自动继续...');
+              setMatchDetail(accuracy >= 70 ? '匹配成功!' : '基本匹配，继续...');
               setTimeout(() => {
                 if (phaseRef.current === 'listening') {
                   doFinishCurrentSpell();
@@ -319,7 +319,7 @@ export default function Level1Chanting() {
     setPhase('countdown');
   }, [initMicrophone, spells]);
 
-  // ---- Handle next spell button ----
+  // ---- Go to next spell ----
   const handleNextSpell = useCallback(() => {
     const nextIdx = currentSpellIndexRef.current + 1;
     currentSpellIndexRef.current = nextIdx;
@@ -329,6 +329,15 @@ export default function Level1Chanting() {
     setCountdown(2);
     setPhase('countdown');
   }, []);
+
+  // ---- Auto-advance after each spell ----
+  useEffect(() => {
+    if (phase !== 'transition') return;
+    const timer = setTimeout(() => {
+      handleNextSpell();
+    }, 1200);
+    return () => clearTimeout(timer);
+  }, [phase, handleNextSpell]);
 
   // ---- Handle "I'm done" button (early finish) ----
   const handleEarlyFinish = useCallback(() => {
@@ -584,23 +593,12 @@ export default function Level1Chanting() {
         </button>
       )}
 
-      {/* Transition between spells */}
+      {/* Transition between spells — auto-advances */}
       {phase === 'transition' && (
         <div className="flex flex-col items-center gap-4">
           <div className="text-4xl" style={{ animation: 'hatWobble 2s ease-in-out infinite' }}>🎩</div>
           <p style={{ color: '#c9a84c' }}>分院帽记下了...</p>
-          <button
-            onClick={handleNextSpell}
-            className="px-8 py-3 rounded-lg text-lg font-bold tracking-wider transition-all duration-300 cursor-pointer"
-            style={{
-              fontFamily: "'Cinzel', serif",
-              color: '#0a0e1a',
-              background: 'linear-gradient(135deg, #c9a84c, #d4a017, #c9a84c)',
-              boxShadow: '0 0 20px rgba(201, 168, 76, 0.4)',
-            }}
-          >
-            下一个咒语 →
-          </button>
+          <p className="text-sm" style={{ color: '#9ca3af' }}>即将进入下一个咒语</p>
         </div>
       )}
 
