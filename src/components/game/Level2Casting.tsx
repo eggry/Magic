@@ -75,6 +75,37 @@ export default function Level2Casting() {
     ctx.restore();
   }, []);
 
+  const finishDrawing = useCallback(() => {
+    cancelAnimationFrame(animFrameRef.current);
+    setPhase('analyzing');
+    const pts = pointsRef.current;
+    if (pts.length < 5) { setPatternScore(10); setPrecisionScore(10); return; }
+    const lines = patternLinesRef.current;
+    const vertices = patternPointsRef.current;
+    let totalMinDist = 0;
+    const step = Math.max(1, Math.floor(pts.length / 50));
+    for (let i = 0; i < pts.length; i += step) {
+      const p = pts[i];
+      let minDist = Infinity;
+      for (const line of lines) {
+        const a = vertices[line.from], b = vertices[line.to];
+        const dx = b.x - a.x, dy = b.y - a.y;
+        const len2 = dx * dx + dy * dy;
+        if (len2 === 0) { minDist = Math.min(minDist, Math.sqrt((p.x - a.x) ** 2 + (p.y - a.y) ** 2)); continue; }
+        let t = ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2;
+        t = Math.max(0, Math.min(1, t));
+        const d = Math.sqrt((p.x - (a.x + t * dx)) ** 2 + (p.y - (a.y + t * dy)) ** 2);
+        minDist = Math.min(minDist, d);
+      }
+      totalMinDist += minDist;
+    }
+    const avgDist = totalMinDist / Math.ceil(pts.length / step);
+    const coverage = Math.min(1, pts.length / 100);
+    const accuracy = Math.max(0, 1 - avgDist / 0.15);
+    setPatternScore(Math.min(100, Math.max(0, Math.round(accuracy * 60 + coverage * 40))));
+    setPrecisionScore(Math.min(100, Math.max(0, Math.round(Math.max(0, (1 - avgDist / 0.2)) * 100))));
+  }, []);
+
   const startCamera = useCallback(async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -176,7 +207,7 @@ export default function Level2Casting() {
     if (phase !== 'countdown') return;
     if (countdown <= 0) {
       setPhase('drawing');
-      setTimeLeft(15);
+      setTimeLeft(7);
       pointsRef.current = [];
       lastPointRef.current = null;
       requestAnimationFrame(() => startOverlayLoop());
@@ -226,37 +257,6 @@ export default function Level2Casting() {
   }, [isPointerDown, getCanvasPoint]);
 
   const handlePointerUp = useCallback(() => { setIsPointerDown(false); }, []);
-
-  const finishDrawing = useCallback(() => {
-    cancelAnimationFrame(animFrameRef.current);
-    setPhase('analyzing');
-    const pts = pointsRef.current;
-    if (pts.length < 5) { setPatternScore(10); setPrecisionScore(10); return; }
-    const lines = patternLinesRef.current;
-    const vertices = patternPointsRef.current;
-    let totalMinDist = 0;
-    const step = Math.max(1, Math.floor(pts.length / 50));
-    for (let i = 0; i < pts.length; i += step) {
-      const p = pts[i];
-      let minDist = Infinity;
-      for (const line of lines) {
-        const a = vertices[line.from], b = vertices[line.to];
-        const dx = b.x - a.x, dy = b.y - a.y;
-        const len2 = dx * dx + dy * dy;
-        if (len2 === 0) { minDist = Math.min(minDist, Math.sqrt((p.x - a.x) ** 2 + (p.y - a.y) ** 2)); continue; }
-        let t = ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2;
-        t = Math.max(0, Math.min(1, t));
-        const d = Math.sqrt((p.x - (a.x + t * dx)) ** 2 + (p.y - (a.y + t * dy)) ** 2);
-        minDist = Math.min(minDist, d);
-      }
-      totalMinDist += minDist;
-    }
-    const avgDist = totalMinDist / Math.ceil(pts.length / step);
-    const coverage = Math.min(1, pts.length / 100);
-    const accuracy = Math.max(0, 1 - avgDist / 0.15);
-    setPatternScore(Math.min(100, Math.max(0, Math.round(accuracy * 60 + coverage * 40))));
-    setPrecisionScore(Math.min(100, Math.max(0, Math.round(Math.max(0, (1 - avgDist / 0.2)) * 100))));
-  }, []);
 
   const showCanvasArea = phase === 'drawing' || phase === 'countdown';
 

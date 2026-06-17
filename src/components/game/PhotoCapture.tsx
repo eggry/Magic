@@ -11,6 +11,8 @@ export default function PhotoCapture() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const autoProceedTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hasProceededRef = useRef(false);
 
   // Start camera
   useEffect(() => {
@@ -78,11 +80,23 @@ export default function PhotoCapture() {
         // silent fail - portrait will show placeholder
       });
 
-    // Immediately proceed to result phase
-    setTimeout(() => {
-      completePhoto();
-    }, 800);
+    // Auto-proceed after 500ms to let user glimpse the photo
+    autoProceedTimeoutRef.current = setTimeout(() => {
+      if (!hasProceededRef.current) {
+        hasProceededRef.current = true;
+        completePhoto();
+      }
+    }, 500);
   }, [sortedHouse, setResult, completePhoto]);
+
+  const handleConfirm = useCallback(() => {
+    if (hasProceededRef.current) return;
+    hasProceededRef.current = true;
+    if (autoProceedTimeoutRef.current) {
+      clearTimeout(autoProceedTimeoutRef.current);
+    }
+    completePhoto();
+  }, [completePhoto]);
 
   const houseColor = sortedHouse?.colors.primary ?? "#c9a84c";
 
@@ -220,29 +234,17 @@ export default function PhotoCapture() {
           </motion.p>
         )}
 
-        {/* processing indicator after photo taken */}
+        {/* subtle transition hint after photo taken */}
         {photoTaken && (
-          <motion.div
+          <motion.p
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="mt-6 flex flex-col items-center gap-2"
+            transition={{ delay: 0.1 }}
+            className="mt-4 text-center text-xs"
+            style={{ color: "#9ca3af" }}
           >
-            <div
-              className="h-1 w-32 overflow-hidden rounded-full"
-              style={{ background: "rgba(201,168,76,0.2)" }}
-            >
-              <motion.div
-                className="h-full rounded-full"
-                style={{ background: "#c9a84c" }}
-                initial={{ width: "0%" }}
-                animate={{ width: "100%" }}
-                transition={{ duration: 0.8 }}
-              />
-            </div>
-            <p className="text-sm" style={{ color: "#c9a84c" }}>
-              正在进入魔法大厅...
-            </p>
-          </motion.div>
+            即将进入分院大厅...
+          </motion.p>
         )}
       </motion.div>
 

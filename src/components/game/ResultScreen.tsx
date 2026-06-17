@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useGame } from "./GameProvider";
 import { recommendWand } from "@/lib/wands";
 import { getBadgeUrl, type Spell } from "@/lib/spells";
@@ -26,10 +26,15 @@ export default function ResultScreen() {
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string | null>(null);
   const [wandBought, setWandBought] = useState(false);
   const [badgeForged, setBadgeForged] = useState(false);
-  const [stepEntering, setStepEntering] = useState(true);
+  const [stepEntering, setStepEntering] = useState(false);
+  const isFirstStepRender = useRef(true);
 
   // Step transition animation
   useEffect(() => {
+    if (isFirstStepRender.current) {
+      isFirstStepRender.current = false;
+      return;
+    }
     setStepEntering(true);
     const t = setTimeout(() => setStepEntering(false), 400);
     return () => clearTimeout(t);
@@ -196,7 +201,7 @@ export default function ResultScreen() {
                 {house.motto}
               </p>
               <p className="mt-2 text-xs italic" style={{ color: "#9ca3af" }}>
-                "{house.hatMessage}"
+                &ldquo;{house.hatMessage}&rdquo;
               </p>
             </div>
 
@@ -248,17 +253,26 @@ export default function ResultScreen() {
               )}
             </div>
 
-            <Button
-              onClick={() => setStep("badge")}
-              className="mt-2 flex items-center gap-2 rounded-xl px-8 py-3 text-base font-bold text-white shadow-lg"
-              style={{
-                background: `linear-gradient(135deg, ${primary}, ${secondary})`,
-                fontFamily: "Noto Serif SC, serif",
-              }}
-            >
-              下一步：专属徽章
-              <ChevronRight className="h-4 w-4" />
-            </Button>
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                onClick={() => setStep("wand")}
+                className="rounded-xl border-amber-500/30 px-6 py-2 text-sm text-amber-300 hover:bg-amber-500/10"
+              >
+                上一步
+              </Button>
+              <Button
+                onClick={resetGame}
+                className="flex items-center gap-2 rounded-xl px-8 py-3 text-base font-bold text-white shadow-lg"
+                style={{
+                  background: "linear-gradient(135deg, #c9a84c, #d4a017)",
+                  fontFamily: "Noto Serif SC, serif",
+                }}
+              >
+                <RotateCcw className="h-4 w-4" />
+                再来一次
+              </Button>
+            </div>
           </div>
         )}
 
@@ -337,7 +351,7 @@ export default function ResultScreen() {
             <div className="flex gap-3">
               <Button
                 variant="outline"
-                onClick={() => setStep("portrait")}
+                onClick={() => setStep("report")}
                 className="rounded-xl border-amber-500/30 px-6 py-2 text-sm text-amber-300 hover:bg-amber-500/10"
               >
                 上一步
@@ -429,14 +443,14 @@ export default function ResultScreen() {
                 上一步
               </Button>
               <Button
-                onClick={() => setStep("report")}
+                onClick={() => setStep("portrait")}
                 className="flex items-center gap-2 rounded-xl px-8 py-3 text-base font-bold text-white shadow-lg"
                 style={{
                   background: "linear-gradient(135deg, #c9a84c, #d4a017)",
                   fontFamily: "Noto Serif SC, serif",
                 }}
               >
-                下一步：评估报告
+                下一步：巫师肖像
                 <ChevronRight className="h-4 w-4" />
               </Button>
             </div>
@@ -512,26 +526,17 @@ export default function ResultScreen() {
               </span>
             </div>
 
-            <div className="flex gap-3">
-              <Button
-                variant="outline"
-                onClick={() => setStep("wand")}
-                className="rounded-xl border-amber-500/30 px-6 py-2 text-sm text-amber-300 hover:bg-amber-500/10"
-              >
-                上一步
-              </Button>
-              <Button
-                onClick={resetGame}
-                className="flex items-center gap-2 rounded-xl px-8 py-3 text-base font-bold text-white shadow-lg"
-                style={{
-                  background: "linear-gradient(135deg, #c9a84c, #d4a017)",
-                  fontFamily: "Noto Serif SC, serif",
-                }}
-              >
-                <RotateCcw className="h-4 w-4" />
-                再来一次
-              </Button>
-            </div>
+            <Button
+              onClick={() => setStep("badge")}
+              className="mt-2 flex items-center gap-2 rounded-xl px-8 py-3 text-base font-bold text-white shadow-lg"
+              style={{
+                background: "linear-gradient(135deg, #c9a84c, #d4a017)",
+                fontFamily: "Noto Serif SC, serif",
+              }}
+            >
+              下一步：专属徽章
+              <ChevronRight className="h-4 w-4" />
+            </Button>
           </div>
         )}
       </div>

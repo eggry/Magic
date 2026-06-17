@@ -17,17 +17,20 @@ export default function IntroScreen() {
   const { startGame } = useGame();
   const [hovered, setHovered] = useState(false);
 
-  // Pre-generate particle data to avoid Math.random() in render
+  // Pre-generate particle data using deterministic seeded values
   const particles = useMemo<Particle[]>(() =>
-    Array.from({ length: 30 }, () => ({
-      width: 2 + Math.random() * 3,
-      height: 2 + Math.random() * 3,
-      left: Math.random() * 100,
-      top: Math.random() * 100,
-      opacity: 0.2 + Math.random() * 0.4,
-      duration: 5 + Math.random() * 10,
-      delay: Math.random() * 5,
-    }))
+    Array.from({ length: 30 }, (_, i) => {
+      const seed = (n: number) => ((i * 9301 + 49297) % 233280) / 233280 * n;
+      return {
+        width: 2 + seed(3),
+        height: 2 + seed(3),
+        left: seed(100),
+        top: seed(100),
+        opacity: 0.2 + seed(0.4),
+        duration: 5 + seed(10),
+        delay: seed(5),
+      };
+    })
   , []);
 
   return (
