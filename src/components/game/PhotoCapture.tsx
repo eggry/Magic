@@ -108,7 +108,9 @@ export default function PhotoCapture() {
       exit={{ opacity: 0 }}
       className="fixed inset-0 z-40 flex flex-col items-center justify-center p-8"
       style={{
-        background: "linear-gradient(180deg, #0a0e1a 0%, #111827 50%, #1a1025 100%)",
+        backgroundImage: "url(/bg-portrait.png)",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
       }}
     >
       {/* particles */}

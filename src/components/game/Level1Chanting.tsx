@@ -458,7 +458,10 @@ export default function Level1Chanting() {
   }, [doFinishCurrentSpell]);
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen px-4 text-center">
+    <div
+      className="flex flex-col items-center justify-center min-h-screen px-4 text-center"
+      style={{ backgroundImage: "url(/bg-spell.png)", backgroundSize: "cover", backgroundPosition: "center" }}
+    >
       {/* Spell Animation Overlay */}
       {animatingSpell && (
         <SpellAnimation spellName={animatingSpell} onComplete={handleAnimationComplete} />

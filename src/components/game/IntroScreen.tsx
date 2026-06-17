@@ -34,7 +34,10 @@ export default function IntroScreen() {
   , []);
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen px-4 text-center">
+    <div
+      className="flex flex-col items-center justify-center min-h-screen px-4 text-center"
+      style={{ backgroundImage: "url(/bg-main.png)", backgroundSize: "cover", backgroundPosition: "center" }}
+    >
       {/* Floating particles background */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         {particles.map((p, i) => (

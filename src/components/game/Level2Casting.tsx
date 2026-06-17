@@ -301,7 +301,10 @@ export default function Level2Casting() {
   const showCanvasArea = phase === 'drawing' || phase === 'countdown';
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen px-4 py-4">
+    <div
+      className="flex flex-col items-center justify-center min-h-screen px-4 py-4"
+      style={{ backgroundImage: "url(/bg-spell.png)", backgroundSize: "cover", backgroundPosition: "center" }}
+    >
       {/* ===== ALWAYS render video (WebRTC rule) ===== */}
       <video ref={videoRef} autoPlay playsInline muted className="hidden" />
 

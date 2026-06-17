@@ -58,7 +58,10 @@ export default function ResultScreen() {
   const colors = houseFrameColors[house.name] || houseFrameColors.gryffindor;
 
   return (
-    <div className="relative flex h-screen w-screen flex-col items-center justify-center overflow-hidden" style={{ background: "linear-gradient(180deg, #0a0e1a 0%, #111827 50%, #0a0e1a 100%)" }}>
+    <div
+      className="relative flex h-screen w-screen flex-col items-center justify-center overflow-hidden"
+      style={{ backgroundImage: "url(/bg-main.png)", backgroundSize: "cover", backgroundPosition: "center" }}
+    >
       {/* 背景星光 */}
       <div className="pointer-events-none absolute inset-0 sparkle-bg" />
 
