@@ -308,42 +308,29 @@ export default function Level1Chanting() {
       </div>
 
       {/* Spell progress dots */}
-      <div className="flex items-center gap-4 mb-8">
-        {spells.map((s, i) => {
-          const completed = i < currentSpellIndex;
-          const active = i === currentSpellIndex && (phase === 'listening' || phase === 'countdown');
-          const dotColor = completed || active ? getCategoryColor(s.category) : 'rgba(255,255,255,0.15)';
-          return (
+      <div className="flex items-center gap-3 mb-6">
+        {spells.map((s, i) => (
+          <div key={s.name} className="flex items-center gap-1">
             <div
-              key={s.name}
-              className="flex items-center gap-4"
-            >
-              <div
-                className="rounded-full transition-all duration-500"
-                style={{
-                  width: active ? '14px' : completed ? '10px' : '8px',
-                  height: active ? '14px' : completed ? '10px' : '8px',
-                  backgroundColor: dotColor,
-                  boxShadow: active
-                    ? `0 0 12px ${getCategoryColor(s.category)}80, 0 0 24px ${getCategoryColor(s.category)}30`
-                    : completed
-                      ? `0 0 6px ${getCategoryColor(s.category)}40`
-                      : 'none',
-                }}
-              />
-              {i < spells.length - 1 && (
-                <div
-                  style={{
-                    width: '20px',
-                    height: '1px',
-                    backgroundColor: completed ? `${getCategoryColor(s.category)}50` : 'rgba(255,255,255,0.08)',
-                    transition: 'background-color 0.5s',
-                  }}
-                />
-              )}
-            </div>
-          );
-        })}
+              className="w-3 h-3 rounded-full transition-all duration-300"
+              style={{
+                backgroundColor: i < currentSpellIndex
+                  ? getCategoryColor(s.category)
+                  : i === currentSpellIndex && (phase === 'listening' || phase === 'countdown')
+                    ? getCategoryColor(s.category)
+                    : 'rgba(255,255,255,0.2)',
+                boxShadow: i === currentSpellIndex && (phase === 'listening' || phase === 'countdown')
+                  ? `0 0 10px ${getCategoryColor(s.category)}60`
+                  : 'none',
+              }}
+            />
+            <span className="text-xs" style={{
+              color: i <= currentSpellIndex ? getCategoryColor(s.category) : '#9ca3af',
+            }}>
+              {s.nameCn}
+            </span>
+          </div>
+        ))}
       </div>
 
       {/* Current Spell Display */}
