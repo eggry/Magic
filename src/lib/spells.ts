@@ -327,3 +327,29 @@ export function pickThreeSpells(): Spell[] {
 export function getRandomSpell(): Spell {
   return SPELLS[Math.floor(Math.random() * SPELLS.length)];
 }
+
+export function getBadgeUrl(spellName: string): string {
+  const map: Record<string, string> = {
+    '盔甲护身': '/badges/盔甲护身.png',
+    '呼神护卫': '/badges/呼神护卫.png',
+    '滑稽滑稽': '/badges/滑稽滑稽.png',
+    '恢复如初': '/badges/恢复如初.png',
+    '荧光闪烁': '/badges/荧光闪烁.png',
+    '悬浮咒': '/badges/悬浮咒.png',
+    '速速前': '/badges/速速前.png',
+    '阿拉霍洞开': '/badges/阿拉霍洞开.png',
+    '修复如初': '/badges/修复如初.png',
+    '除你武器': '/badges/除你武器.png',
+    '昏昏倒地': '/badges/昏昏倒地.png',
+    '统统石化': '/badges/统统石化.png',
+    '障碍重重': '/badges/障碍重重.png',
+    '神锋无影': '/badges/神锋无影.png',
+    '尸骨再现': '/badges/尸骨再现.png',
+    '厉火咒': '/badges/厉火咒.png',
+    '一忘皆空': '/badges/一忘皆空.png',
+    '钻心剜骨': '/badges/钻心剜骨.png',
+    '魂魄出窍': '/badges/魂魄出窍.png',
+    '阿瓦达索命': '/badges/阿瓦达索命.png',
+  };
+  return map[spellName] || '';
+}

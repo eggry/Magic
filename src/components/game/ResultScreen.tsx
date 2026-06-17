@@ -1,618 +1,588 @@
-'use client';
+"use client";
 
-import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
-import QRCode from 'qrcode';
-import { useGame } from './GameProvider';
-import { HOUSES, type HouseName, type SortingResult } from '@/lib/sorting-hat';
-import type { SpellCategory } from '@/lib/spells';
-import { SPELLS } from '@/lib/spells';
-import { recommendWand } from '@/lib/wands';
-
-type Phase = 'photo' | 'generating' | 'revealing' | 'done';
-
-const CATEGORY_COLORS: Record<SpellCategory, string> = {
-  defense: '#3b82f6',
-  utility: '#22c55e',
-  combat: '#f59e0b',
-  dark: '#8b5cf6',
-  unforgivable: '#ef4444',
-};
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { useGame } from "./GameProvider";
+import { recommendWand } from "@/lib/wands";
+import { getBadgeUrl, type Spell } from "@/lib/spells";
+import { Button } from "@/components/ui/button";
+import { Sparkles, Wand2, Shield, Star, ChevronRight, Camera, RotateCcw, Loader2 } from "lucide-react";
+import type { HouseName } from "@/lib/sorting-hat";
 
 export default function ResultScreen() {
-  const { level1Result, level2Result, sortedHouse, resetGame } = useGame();
-  const [phase, setPhase] = useState<Phase>('photo');
-  const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(null);
-  const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null);
-  const [revealCharIndex, setRevealCharIndex] = useState(0);
-  const [showBadge, setShowBadge] = useState(false);
-  const [badgeForged, setBadgeForged] = useState(false);
+  const { level1Result, level2Result, sortedHouse, generatedImageUrl, setResult, resetGame } = useGame();
+  const [step, setStep] = useState<"report" | "portrait" | "badge" | "wand">("report");
+  const [photoLoading, setPhotoLoading] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const [photoGenerated, setPhotoGenerated] = useState(false);
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string | null>(null);
-  const [showWand, setShowWand] = useState(false);
-  const [wandPurchased, setWandPurchased] = useState(false);
+  const [wandBought, setWandBought] = useState(false);
+  const [badgeForged, setBadgeForged] = useState(false);
+  const [stepEntering, setStepEntering] = useState(true);
 
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const streamRef = useRef<MediaStream | null>(null);
+  // Step transition animation
+  useEffect(() => {
+    setStepEntering(true);
+    const t = setTimeout(() => setStepEntering(false), 400);
+    return () => clearTimeout(t);
+  }, [step]);
 
-  const house = sortedHouse ? HOUSES[sortedHouse.name] : HOUSES.gryffindor;
+  const accuracy = level1Result?.accuracy ?? 0;
+  const power = level1Result?.power ?? 0;
+  const darkAffinity = level1Result?.darkAffinity ?? 0;
+  const lightAffinity = level1Result?.lightAffinity ?? 0;
+  const l1Score = level1Result ? (level1Result.accuracy * 0.4 + level1Result.power * 0.6) : 0;
+  const l2Score = level2Result ? (level2Result.score * 0.5 + level2Result.precision * 0.5) : 0;
+  const totalScore = Math.round((l1Score + l2Score) / 2);
 
-  // Find best spell from Level 1
-  const bestSpellData = useMemo(() => {
-    if (!level1Result?.spells || level1Result.spells.length === 0) return null;
-    const best = level1Result.spells.reduce((prev, curr) =>
-      (curr.accuracy * 0.6 + curr.power * 0.4) > (prev.accuracy * 0.6 + prev.power * 0.4) ? curr : prev
+  const bestSpell = useMemo(() => {
+    if (!level1Result || level1Result.spells.length === 0) return null;
+    const best = level1Result.spells.reduce((a, b) =>
+      (a.accuracy + a.power) > (b.accuracy + b.power) ? a : b
     );
     return best;
   }, [level1Result]);
 
-  const bestCategory: SpellCategory = bestSpellData?.category ?? 'defense';
+  const bestCategory = useMemo<Spell['category'] | null>(() => {
+    if (!level1Result || level1Result.spells.length === 0) return null;
+    const cats = level1Result.spells.reduce<Record<string, number>>((acc, s) => {
+      acc[s.spell.category] = (acc[s.spell.category] || 0) + (s.accuracy + s.power) / 2;
+      return acc;
+    }, {});
+    const bestCat = Object.entries(cats).sort((a, b) => b[1] - a[1])[0];
+    return bestCat ? (bestCat[0] as Spell['category']) : null;
+  }, [level1Result]);
 
-  // Wand recommendation
   const wand = useMemo(() => {
-    if (!sortedHouse) return null;
+    if (!sortedHouse || !bestCategory) return null;
     return recommendWand({
-      house: sortedHouse.name,
-      accuracy: level1Result?.accuracy ?? 50,
-      power: level1Result?.power ?? 50,
-      darkAffinity: level1Result?.darkAffinity ?? 0,
+      house: sortedHouse.name as HouseName,
+      accuracy,
+      power,
+      darkAffinity,
       bestCategory,
     });
-  }, [sortedHouse, level1Result, bestCategory]);
+  }, [sortedHouse, bestCategory, accuracy, power, darkAffinity]);
 
-  // Start camera for photo
+  const badgeUrl = useMemo(() => {
+    if (!bestSpell) return null;
+    return getBadgeUrl(bestSpell.spell.nameCn);
+  }, [bestSpell]);
+
+  // Generate QR code for the portrait
   useEffect(() => {
-    let mounted = true;
-    const startCamera = async () => {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } }
-        });
-        if (!mounted) {
-          stream.getTracks().forEach(t => t.stop());
-          return;
-        }
-        streamRef.current = stream;
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          videoRef.current.onloadedmetadata = () => {
-            videoRef.current?.play();
-          };
-        }
-      } catch (err) {
-        console.error('Camera denied for photo:', err);
-        setPhotoDataUrl('');
-        setPhase('generating');
-        generateImage(null);
-      }
-    };
-    startCamera();
-    return () => {
-      mounted = false;
-      streamRef.current?.getTracks().forEach(t => t.stop());
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (!generatedImageUrl) return;
+    let cancelled = false;
+    import("qrcode").then((QRCode) => {
+      if (cancelled) return;
+      QRCode.toDataURL(generatedImageUrl, {
+        width: 400,
+        margin: 2,
+        color: { dark: "#c9a84c", light: "#0a0e1a" },
+      }).then((url: string) => {
+        if (!cancelled) setQrCodeDataUrl(url);
+      }).catch(() => {});
+    });
+    return () => { cancelled = true; };
+  }, [generatedImageUrl]);
 
-  const takePhoto = useCallback(() => {
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    if (!video || !canvas || video.videoWidth === 0) return;
-
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    ctx.translate(canvas.width, 0);
-    ctx.scale(-1, 1);
-    ctx.drawImage(video, 0, 0);
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
-    setPhotoDataUrl(dataUrl);
-
-    streamRef.current?.getTracks().forEach(t => t.stop());
-    streamRef.current = null;
-
-    setPhase('generating');
-    generateImage(dataUrl);
-  }, []);
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const generateImage = async (photoData: string | null) => {
-    try {
-      const body: { house: HouseName; photoBase64?: string } = {
-        house: sortedHouse?.name || 'gryffindor',
-      };
-
-      if (photoData) {
-        const base64 = photoData.split(',')[1] || '';
-        body.photoBase64 = base64;
-      }
-
-      const resp = await fetch('/api/generate-image', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-
-      const data = await resp.json();
-      if (data.imageUrl) {
-        setGeneratedImageUrl(data.imageUrl);
-      }
-    } catch (err) {
-      console.error('Image generation failed:', err);
+  // Auto-advance from portrait step once photo is generated
+  useEffect(() => {
+    if (step === "portrait" && photoGenerated && generatedImageUrl) {
+      const t = setTimeout(() => setStep("badge"), 1500);
+      return () => clearTimeout(t);
     }
+  }, [step, photoGenerated, generatedImageUrl]);
 
-    setPhase('revealing');
+  const handleTakePhoto = useCallback(async () => {
+    setPhotoLoading(true);
+    setPhotoError(null);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      const video = document.createElement("video");
+      video.srcObject = stream;
+      await new Promise<void>((resolve) => {
+        video.onloadedmetadata = () => resolve();
+      });
+      video.play();
+      await new Promise<void>((r) => setTimeout(r, 500));
+      const canvas = document.createElement("canvas");
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) throw new Error("无法创建画布");
+      ctx.drawImage(video, 0, 0);
+      const blob = await new Promise<Blob | null>((r) => canvas.toBlob((b) => r(b), "image/jpeg", 0.9));
+      stream.getTracks().forEach((t) => t.stop());
+      if (!blob) throw new Error("拍照失败");
+
+      // Convert blob to base64 and call API
+      const reader = new FileReader();
+      const base64 = await new Promise<string>((resolve) => {
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.readAsDataURL(blob);
+      });
+      const photoBase64 = base64.split(',')[1];
+
+      const response = await fetch("/api/generate-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ house: sortedHouse?.name ?? "gryffindor", photoBase64 }),
+      });
+      const data = await response.json();
+      if (!data.success || !data.imageUrl) throw new Error(data.error || "生成失败");
+      setResult(sortedHouse!, null, data.imageUrl);
+      setPhotoGenerated(true);
+    } catch (err) {
+      setPhotoError(err instanceof Error ? err.message : "未知错误");
+    } finally {
+      setPhotoLoading(false);
+    }
+  }, [sortedHouse]);
+
+  const handleRetake = () => {
+    setPhotoGenerated(false);
+    setPhotoError(null);
   };
 
-  // Reveal animation
-  useEffect(() => {
-    if (phase !== 'revealing') return;
+  if (!sortedHouse) return null;
 
-    const houseName = house.nameCn;
-    if (revealCharIndex < houseName.length) {
-      const timer = setTimeout(() => {
-        setRevealCharIndex(prev => prev + 1);
-      }, 300);
-      return () => clearTimeout(timer);
-    } else {
-      const timer = setTimeout(() => {
-        setPhase('done');
-      }, 500);
-      return () => clearTimeout(timer);
-    }
-  }, [phase, revealCharIndex, house.nameCn]);
+  const primary = sortedHouse.colors.primary;
+  const secondary = sortedHouse.colors.secondary;
+  const hName = sortedHouse.nameCn;
 
-  // Staggered reveal of badge and wand
-  useEffect(() => {
-    if (phase !== 'done') return;
-    const badgeTimer = setTimeout(() => setShowBadge(true), 800);
-    const wandTimer = setTimeout(() => setShowWand(true), 1600);
-    return () => {
-      clearTimeout(badgeTimer);
-      clearTimeout(wandTimer);
-    };
-  }, [phase]);
+  const stepTitles: Record<string, string> = {
+    report: "📜 考核报告",
+    portrait: "📸 巫师肖像",
+    badge: "🎖️ 专属徽章",
+    wand: "🪄 魔杖选择",
+  };
 
-  // Generate QR code for the generated image URL
-  useEffect(() => {
-    if (!generatedImageUrl || qrCodeDataUrl) return;
-    QRCode.toDataURL(generatedImageUrl, {
-      width: 400,
-      margin: 1,
-      color: { dark: '#c9a84c', light: '#0a0e1a' },
-    }).then(setQrCodeDataUrl).catch(() => {
-      // QR generation failed, silently ignore
-    });
-  }, [generatedImageUrl, qrCodeDataUrl]);
-
-  const totalScore = (() => {
-    if (!level1Result || !level2Result) return 0;
-    return Math.round(level1Result.totalScore * 0.5 + level2Result.score * 0.5);
-  })();
-
-  // Card style helper
-  const cardStyle = (extra?: React.CSSProperties): React.CSSProperties => ({
-    background: 'rgba(15, 15, 30, 0.85)',
-    backdropFilter: 'blur(12px)',
-    border: `1px solid ${house.colors.secondary}40`,
-    ...extra,
-  });
+  const stepOrder: Array<"report" | "portrait" | "badge" | "wand"> = ["report", "portrait", "badge", "wand"];
+  const currentIdx = stepOrder.indexOf(step);
 
   return (
-    <div className="h-screen w-screen overflow-hidden flex flex-col items-center justify-center px-6 py-3 text-center">
-
-      {/* Photo capture phase */}
-      {phase === 'photo' && (
-        <div className="flex flex-col items-center">
-          <p className="text-lg mb-4" style={{ color: '#e8dcc8' }}>
-            分院帽需要看看你！请正对摄像头
-          </p>
+    <div className="fixed inset-0 z-40 bg-[#0a0e1a] overflow-hidden flex flex-col">
+      {/* Animated background particles */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        {Array.from({ length: 30 }).map((_, i) => (
           <div
-            className="relative rounded-xl overflow-hidden mb-4"
+            key={i}
+            className="absolute rounded-full opacity-30 animate-particle-float"
             style={{
-              width: '100%',
-              maxWidth: '400px',
-              aspectRatio: '4/3',
-              background: '#000',
-              border: '1px solid rgba(201, 168, 76, 0.3)',
+              width: `${2 + (i % 4)}px`,
+              height: `${2 + (i % 4)}px`,
+              left: `${(i * 37) % 100}%`,
+              top: `${(i * 53) % 100}%`,
+              background: i % 3 === 0 ? primary : i % 3 === 1 ? secondary : "#c9a84c",
+              animationDelay: `${i * 0.3}s`,
+              animationDuration: `${6 + (i % 5)}s`,
             }}
-          >
-            <video
-              ref={videoRef}
-              autoPlay
-              playsInline
-              muted
-              className="w-full h-full object-cover"
-              style={{ transform: 'scaleX(-1)' }}
-            />
+          />
+        ))}
+      </div>
+
+      {/* Top step progress */}
+      <div className="relative z-10 flex items-center justify-center gap-2 pt-3 pb-2 px-4">
+        {stepOrder.map((s, i) => (
+          <div key={s} className="flex items-center gap-2">
+            <div
+              className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold transition-all duration-500 ${
+                i <= currentIdx
+                  ? "text-[#0a0e1a]"
+                  : "text-[#9ca3af] border border-[#1f2937]"
+              }`}
+              style={{
+                background: i <= currentIdx ? `linear-gradient(135deg, ${primary}, ${secondary})` : "transparent",
+                boxShadow: i === currentIdx ? `0 0 12px ${primary}66` : "none",
+              }}
+            >
+              {i < currentIdx ? "✓" : i + 1}
+              <span className="hidden sm:inline">{stepTitles[s]}</span>
+            </div>
+            {i < stepOrder.length - 1 && (
+              <div
+                className="w-6 h-0.5 rounded-full transition-all duration-500"
+                style={{ background: i < currentIdx ? primary : "#1f2937" }}
+              />
+            )}
           </div>
-          <canvas ref={canvasRef} className="hidden" />
-          <button
-            onClick={takePhoto}
-            className="px-8 py-3 rounded-lg text-lg font-bold tracking-wider transition-all duration-300 cursor-pointer"
-            style={{
-              fontFamily: "'Cinzel', serif",
-              color: '#0a0e1a',
-              background: 'linear-gradient(135deg, #c9a84c, #d4a017, #c9a84c)',
-              boxShadow: '0 0 20px rgba(201, 168, 76, 0.4)',
-            }}
-          >
-            拍照
-          </button>
-          <button
-            onClick={() => {
-              setPhotoDataUrl('');
-              setPhase('generating');
-              generateImage(null);
-            }}
-            className="mt-3 px-4 py-2 text-sm cursor-pointer"
-            style={{ color: '#9ca3af' }}
-          >
-            跳过拍照
-          </button>
-        </div>
-      )}
+        ))}
+      </div>
 
-      {/* Generating phase */}
-      {phase === 'generating' && (
-        <div className="flex flex-col items-center gap-4">
-          <div className="text-6xl" style={{ animation: 'hatWobble 2s ease-in-out infinite' }}>🎩</div>
-          <p className="text-xl" style={{ color: '#c9a84c', textShadow: '0 0 10px rgba(201, 168, 76, 0.4)' }}>
-            分院帽正在深思熟虑...
-          </p>
-          <div className="flex gap-2">
-            <div className="w-2 h-2 rounded-full animate-bounce" style={{ backgroundColor: '#740001', animationDelay: '0ms' }} />
-            <div className="w-2 h-2 rounded-full animate-bounce" style={{ backgroundColor: '#1a472a', animationDelay: '150ms' }} />
-            <div className="w-2 h-2 rounded-full animate-bounce" style={{ backgroundColor: '#0e1a40', animationDelay: '300ms' }} />
-            <div className="w-2 h-2 rounded-full animate-bounce" style={{ backgroundColor: '#ecb939', animationDelay: '450ms' }} />
-          </div>
-        </div>
-      )}
-
-      {/* Revealing phase & Done — horizontal desktop layout */}
-      {(phase === 'revealing' || phase === 'done') && (
-        <div className="w-full h-full flex flex-col items-center max-w-[1400px]">
-          {/* Progress indicator — in flow, not absolute */}
-          <div className="flex items-center gap-2 mb-2 shrink-0" style={{ color: '#9ca3af' }}>
-            <span style={{ color: '#c9a84c' }}>●</span>
-            <span style={{ color: '#c9a84c' }}>●</span>
-            <span style={{ color: '#c9a84c' }}>●</span>
-            <span style={{ color: '#c9a84c' }}>分院结果</span>
-          </div>
-
-          {/* House name reveal */}
-          <h1
-            className="text-5xl font-black tracking-widest mb-1 shrink-0"
-            style={{
-              fontFamily: "'Cinzel', serif",
-              color: '#ffffff',
-              textShadow: `
-                0 0 10px ${house.colors.secondary},
-                0 0 30px ${house.colors.secondary},
-                0 0 60px ${house.colors.secondary}80,
-                0 0 100px ${house.colors.secondary}40,
-                0 2px 4px rgba(0,0,0,0.9)
-              `,
-              WebkitTextStroke: `1px ${house.colors.secondary}`,
-            }}
-          >
-            {house.nameCn.slice(0, revealCharIndex)}
-          </h1>
-
-          {phase === 'done' && (
-            <>
-              <p
-                className="text-lg mb-1 shrink-0"
-                style={{ color: house.colors.secondary, fontFamily: "'Cinzel', serif" }}
+      {/* Main content */}
+      <div className={`relative z-10 flex-1 flex items-center justify-center p-4 transition-all duration-500 ${stepEntering ? "opacity-0 scale-95" : "opacity-100 scale-100"}`}>
+        {/* ===== STEP 1: REPORT ===== */}
+        {step === "report" && (
+          <div className="w-full max-w-5xl flex flex-col lg:flex-row gap-6">
+            {/* Left: House result */}
+            <div className="flex-1 flex flex-col items-center justify-center">
+              <div
+                className="text-6xl lg:text-7xl font-bold mb-3 text-center"
+                style={{
+                  color: "#e8dcc8",
+                  textShadow: `0 0 20px ${primary}, 0 0 40px ${primary}88, 0 0 80px ${secondary}44`,
+                  fontFamily: "'Cinzel', serif",
+                }}
               >
-                {house.motto}
-              </p>
+                {hName}
+              </div>
+              <div className="text-xl mb-1" style={{ color: secondary }}>
+                {sortedHouse.motto}
+              </div>
+              <div className="text-sm text-[#9ca3af] mb-6 max-w-md text-center">
+                {sortedHouse.description}
+              </div>
 
-              {sortedHouse && (
-                <p className="text-sm italic mb-2 px-4 shrink-0" style={{ color: '#c9a84c' }}>
-                  🎩 &ldquo;{sortedHouse.hatMessage}&rdquo;
-                </p>
-              )}
+              <div className="flex gap-3 mb-6">
+                {sortedHouse.traits.map((t) => (
+                  <span
+                    key={t}
+                    className="px-3 py-1 rounded-full text-xs font-bold"
+                    style={{
+                      background: `${primary}22`,
+                      color: secondary,
+                      border: `1px solid ${primary}44`,
+                    }}
+                  >
+                    {t}
+                  </span>
+                ))}
+              </div>
 
-              {/* ===== Main 2-column layout ===== */}
-              <div className="flex gap-4 w-full flex-1 min-h-0 max-h-[calc(100vh-180px)]">
+              <div
+                className="text-lg italic text-center max-w-md mb-6 px-4 py-3 rounded-lg border"
+                style={{
+                  color: "#e8dcc8",
+                  borderColor: `${primary}44`,
+                  background: `${primary}11`,
+                }}
+              >
+                "{sortedHouse.hatMessage}"
+              </div>
 
-                {/* LEFT: Generated Image + QR */}
-                <div className="flex flex-col items-center justify-center gap-3" style={{ flex: '1.1' }}>
-                  {generatedImageUrl ? (
-                    <div
-                      className="relative rounded-xl overflow-hidden w-full"
-                      style={{
-                        border: `2px solid ${house.colors.secondary}60`,
-                        boxShadow: `0 0 30px ${house.colors.secondary}30`,
-                        maxHeight: 'calc(100vh - 380px)',
-                      }}
-                    >
-                      <img
-                        src={generatedImageUrl}
-                        alt="巫师肖像"
-                        className="w-full h-full object-contain"
-                        style={{ maxHeight: 'calc(100vh - 380px)' }}
-                      />
+              <Button
+                onClick={() => setStep("portrait")}
+                className="px-8 py-3 text-base font-bold rounded-lg animate-pulse-glow"
+                style={{
+                  background: `linear-gradient(135deg, ${primary}, ${secondary})`,
+                  color: "#0a0e1a",
+                }}
+              >
+                <Sparkles className="w-5 h-5 mr-2" />
+                下一步：生成巫师肖像
+                <ChevronRight className="w-5 h-5 ml-1" />
+              </Button>
+            </div>
+
+            {/* Right: Score cards */}
+            <div className="lg:w-80 flex flex-col gap-4 justify-center">
+              <div className="rounded-xl border p-4" style={{ borderColor: `${primary}33`, background: "rgba(15,15,30,0.7)", backdropFilter: "blur(10px)" }}>
+                <div className="text-xs text-[#9ca3af] mb-3 uppercase tracking-wider">念咒考核</div>
+                {level1Result?.spells.map((s, i) => (
+                  <div key={i} className="flex items-center justify-between mb-2 py-1.5 border-b border-[#1f2937] last:border-0">
+                    <div className="flex items-center gap-2">
+                      <Star className="w-3.5 h-3.5" style={{ color: secondary }} />
+                      <span className="text-sm text-[#e8dcc8]">{s.spell.nameCn}</span>
                     </div>
-                  ) : photoDataUrl ? (
-                    <div
-                      className="relative rounded-xl overflow-hidden w-full"
-                      style={{ border: `2px solid ${house.colors.secondary}60`, maxHeight: 'calc(100vh - 380px)' }}
-                    >
-                      <img src={photoDataUrl} alt="你的照片" className="w-full object-contain" style={{ maxHeight: 'calc(100vh - 380px)' }} />
-                      <div
-                        className="absolute bottom-0 left-0 right-0 px-4 py-2 text-center font-bold text-lg"
-                        style={{
-                          background: `linear-gradient(transparent, ${house.colors.primary}cc)`,
-                          color: house.colors.secondary,
-                        }}
-                      >
-                        {house.nameCn}
-                      </div>
-                    </div>
-                  ) : (
-                    <div
-                      className="w-full rounded-xl flex items-center justify-center"
-                      style={{
-                        background: 'rgba(15, 15, 30, 0.85)',
-                        border: `1px solid ${house.colors.secondary}30`,
-                        maxHeight: 'calc(100vh - 380px)',
-                        aspectRatio: '16/10',
-                      }}
-                    >
-                      <p className="text-sm" style={{ color: '#9ca3af' }}>AI 肖像生成中...</p>
-                    </div>
-                  )}
-
-                  {/* QR Code — large and prominent */}
-                  {qrCodeDataUrl && (
-                    <div className="flex items-center gap-5 shrink-0">
-                      <img
-                        src={qrCodeDataUrl}
-                        alt="扫码保存图片"
-                        className="rounded-lg"
-                        style={{ width: 180, height: 180, imageRendering: 'pixelated', border: `3px solid ${house.colors.secondary}50` }}
-                      />
-                      <div className="text-left">
-                        <p className="text-lg font-bold" style={{ color: house.colors.secondary }}>扫码保存</p>
-                        <p className="text-sm" style={{ color: '#9ca3af' }}>手机扫码下载<br/>你的巫师肖像</p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* RIGHT: Info panels — scrollable only if needed */}
-                <div className="flex flex-col gap-3 overflow-y-auto min-h-0 pr-1" style={{ flex: '0.9' }}>
-
-                  {/* Score breakdown */}
-                  <div className="rounded-xl px-4 py-3" style={cardStyle()}>
-                    <h3 className="text-sm font-bold mb-2" style={{ color: house.colors.secondary, fontFamily: "'Cinzel', serif" }}>
-                      评估报告
-                    </h3>
-
-                    {level1Result && (
-                      <div className="mb-2 text-left">
-                        <p className="text-xs font-bold mb-1.5" style={{ color: '#c9a84c' }}>念咒评估</p>
-                        <div className="space-y-1 mb-1.5">
-                          {level1Result.spells.map((sr) => (
-                            <div key={sr.spell.name} className="flex items-center gap-2 text-xs">
-                              <span>{sr.spell.categoryEmoji}</span>
-                              <span style={{ color: CATEGORY_COLORS[sr.category] }}>{sr.spell.nameCn}</span>
-                              <span style={{ color: '#9ca3af' }}>准确{sr.accuracy}</span>
-                              <span style={{ color: '#9ca3af' }}>气势{sr.power}</span>
-                            </div>
-                          ))}
-                        </div>
-                        <div className="flex gap-4 text-xs">
-                          <span style={{ color: '#9ca3af' }}>准确度: <b style={{ color: '#e8dcc8' }}>{level1Result.accuracy}</b></span>
-                          <span style={{ color: '#9ca3af' }}>气势: <b style={{ color: '#e8dcc8' }}>{level1Result.power}</b></span>
-                        </div>
-                        {level1Result.darkAffinity > 0 && (
-                          <div className="mt-1">
-                            <MiniBar label="黑魔法亲和度" value={level1Result.darkAffinity} color="#8b5cf6" />
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {level2Result && (
-                      <div className="mb-2 text-left">
-                        <p className="text-xs font-bold mb-1.5" style={{ color: '#c9a84c' }}>施咒评估</p>
-                        <div className="flex gap-4 text-xs mb-1">
-                          <span style={{ color: '#9ca3af' }}>匹配度: <b style={{ color: '#e8dcc8' }}>{level2Result.score}</b></span>
-                          <span style={{ color: '#9ca3af' }}>精度: <b style={{ color: '#e8dcc8' }}>{level2Result.precision}</b></span>
-                        </div>
-                        <MiniBar label="图案匹配" value={level2Result.score} color={house.colors.secondary} />
-                      </div>
-                    )}
-
-                    <div
-                      className="pt-2 mt-1 text-base font-bold text-center"
-                      style={{ borderTop: `1px solid ${house.colors.secondary}30`, color: house.colors.secondary }}
-                    >
-                      综合魔力值: {totalScore}
+                    <div className="flex gap-3">
+                      <span className="text-xs text-[#9ca3af]">准确度 {s.accuracy}%</span>
+                      <span className="text-xs text-[#9ca3af]">气势 {s.power}%</span>
                     </div>
                   </div>
-
-                  {/* Badge + Wand side by side */}
-                  <div className="flex gap-3">
-                    {/* Badge */}
-                    {showBadge && bestSpellData && (() => {
-                      const bestSpell = bestSpellData.spell;
-                      return (
-                        <div
-                          className="rounded-xl px-4 py-3 flex-1"
-                          style={{
-                            ...cardStyle(),
-                            animation: 'fadeSlideUp 0.6s ease-out',
-                          }}
-                        >
-                          <h3 className="text-sm font-bold mb-2 text-center" style={{ color: house.colors.secondary, fontFamily: "'Cinzel', serif" }}>
-                            专属徽章
-                          </h3>
-
-                          <div className="flex justify-center mb-2">
-                            <div
-                              className="relative rounded-lg overflow-hidden"
-                              style={{
-                                width: 120,
-                                height: 120,
-                                background: 'linear-gradient(135deg, #0a0e1a 0%, #1a1025 100%)',
-                                border: `2px solid ${house.colors.secondary}60`,
-                                boxShadow: `0 0 20px ${house.colors.secondary}30, inset 0 0 12px ${house.colors.primary}40`,
-                              }}
-                            >
-                              <img
-                                src={`/badges/${bestSpell.nameCn}.png`}
-                                alt="专属徽章"
-                                className="w-full h-full object-contain"
-                                style={{ filter: `drop-shadow(0 0 8px ${house.colors.secondary}40)` }}
-                                onError={(e) => {
-                                  // Fallback to emoji if image not found
-                                  const target = e.currentTarget;
-                                  target.style.display = 'none';
-                                  const parent = target.parentElement;
-                                  if (parent) {
-                                    parent.innerHTML = `<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;height:100%">
-                                      <span style="font-size:36px;filter:drop-shadow(0 0 8px ${house.colors.secondary})">${bestSpell.categoryEmoji}</span>
-                                      <span style="font-size:20px;margin-top:2px;filter:drop-shadow(0 0 6px ${house.colors.secondary})">${house.emoji}</span>
-                                    </div>`;
-                                  }
-                                }}
-                              />
-                            </div>
-                          </div>
-
-                          <p className="text-sm font-bold text-center" style={{ color: house.colors.secondary }}>{bestSpell.nameCn}</p>
-                          <p className="text-[11px] mb-2 text-center" style={{ color: '#9ca3af' }}>
-                            {bestCategory === 'dark' || bestCategory === 'unforgivable' ? '暗黑之力' : bestCategory === 'defense' ? '守护之光' : bestCategory === 'combat' ? '战斗之魂' : '万象灵光'}
-                          </p>
-
-                          {!badgeForged ? (
-                            <button
-                              onClick={() => setBadgeForged(true)}
-                              className="w-full px-4 py-2 rounded-lg text-xs font-bold tracking-wider transition-all duration-300 cursor-pointer"
-                              style={{
-                                fontFamily: "'Cinzel', serif",
-                                color: '#0a0e1a',
-                                background: `linear-gradient(135deg, ${house.colors.secondary}, ${house.colors.secondary}cc)`,
-                                boxShadow: `0 0 15px ${house.colors.secondary}40`,
-                              }}
-                            >
-                              1 加隆 · 铸造
-                            </button>
-                          ) : (
-                            <p className="text-xs" style={{ color: house.colors.secondary }}>
-                              徽章已铸成！古灵阁已扣款。
-                            </p>
-                          )}
-                        </div>
-                      );
-                    })()}
-
-                    {/* Wand */}
-                    {showWand && wand && (
-                      <div
-                        className="rounded-xl px-4 py-3 flex-1 flex flex-col"
-                        style={{
-                          ...cardStyle({ border: '1px solid rgba(201, 168, 76, 0.3)' }),
-                          animation: 'fadeSlideUp 0.6s ease-out',
-                        }}
-                      >
-                        <h3 className="text-sm font-bold mb-2 text-center" style={{ color: '#c9a84c', fontFamily: "'Cinzel', serif" }}>
-                          你的魔杖
-                        </h3>
-
-                        <div className="flex justify-center mb-2">
-                          <div
-                            className="relative rounded-lg overflow-hidden flex items-center justify-center"
-                            style={{
-                              width: 120,
-                              height: 120,
-                              background: 'linear-gradient(135deg, #0a0e1a 0%, #1a1025 100%)',
-                              border: '2px solid rgba(201, 168, 76, 0.4)',
-                              boxShadow: '0 0 20px rgba(201, 168, 76, 0.2), inset 0 0 12px rgba(201, 168, 76, 0.1)',
-                            }}
-                          >
-                            <img
-                              src="/wand.png"
-                              alt="魔杖"
-                              className="object-contain"
-                              style={{ width: 90, height: 90, filter: `drop-shadow(0 0 8px ${house.colors.secondary}80)` }}
-                            />
-                          </div>
-                        </div>
-
-                        <p className="text-sm font-bold text-center" style={{ color: '#c9a84c', fontFamily: "'Cinzel', serif" }}>
-                          {wand.name}
-                        </p>
-                        <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-xs text-center mb-2 mt-1">
-                          <div><span style={{ color: '#9ca3af' }}>杖木：</span><span style={{ color: '#e8dcc8' }}>{wand.woodCn}</span></div>
-                          <div><span style={{ color: '#9ca3af' }}>杖芯：</span><span style={{ color: '#e8dcc8' }}>{wand.coreCn}</span></div>
-                          <div><span style={{ color: '#9ca3af' }}>长度：</span><span style={{ color: '#e8dcc8' }}>{wand.length}</span></div>
-                          <div><span style={{ color: '#9ca3af' }}>弹性：</span><span style={{ color: '#e8dcc8' }}>{wand.flexibility}</span></div>
-                        </div>
-
-                        {!wandPurchased ? (
-                          <button
-                            onClick={() => setWandPurchased(true)}
-                            className="w-full px-4 py-2 rounded-lg text-xs font-bold tracking-wider transition-all duration-300 cursor-pointer"
-                            style={{
-                              fontFamily: "'Cinzel', serif",
-                              color: '#0a0e1a',
-                              background: 'linear-gradient(135deg, #c9a84c, #d4a017, #c9a84c)',
-                              boxShadow: '0 0 15px rgba(201, 168, 76, 0.3)',
-                            }}
-                          >
-                            {wand.price} 加隆 · 购买
-                          </button>
-                        ) : (
-                          <p className="text-xs" style={{ color: '#c9a84c' }}>
-                            魔杖已选择你！预计7个猫头鹰工作日送达。
-                          </p>
-                        )}
-                      </div>
-                    )}
-                  </div>
+                ))}
+                <div className="flex items-center justify-between mt-3 pt-2 border-t border-[#1f2937]">
+                  <span className="text-sm font-bold" style={{ color: secondary }}>综合得分</span>
+                  <span className="text-lg font-bold" style={{ color: primary }}>{Math.round(l1Score)}</span>
                 </div>
               </div>
 
-              {/* Restart — at the very bottom */}
-              <button
-                onClick={resetGame}
-                className="mt-2 shrink-0 px-6 py-1.5 rounded-lg text-xs cursor-pointer"
+              <div className="rounded-xl border p-4" style={{ borderColor: `${primary}33`, background: "rgba(15,15,30,0.7)", backdropFilter: "blur(10px)" }}>
+                <div className="text-xs text-[#9ca3af] mb-3 uppercase tracking-wider">施咒考核</div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm text-[#e8dcc8]">图案匹配</span>
+                  <span className="text-sm font-bold" style={{ color: primary }}>{Math.round(level2Result?.score ?? 0)}%</span>
+                </div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm text-[#e8dcc8]">轨迹精度</span>
+                  <span className="text-sm font-bold" style={{ color: primary }}>{Math.round(level2Result?.precision ?? 0)}%</span>
+                </div>
+                <div className="flex items-center justify-between mt-3 pt-2 border-t border-[#1f2937]">
+                  <span className="text-sm font-bold" style={{ color: secondary }}>综合得分</span>
+                  <span className="text-lg font-bold" style={{ color: primary }}>{Math.round(l2Score)}</span>
+                </div>
+              </div>
+
+              <div className="rounded-xl border p-4 text-center" style={{ borderColor: `${primary}55`, background: `linear-gradient(135deg, ${primary}22, ${secondary}11)` }}>
+                <div className="text-xs text-[#9ca3af] mb-1 uppercase tracking-wider">总评</div>
+                <div className="text-4xl font-bold" style={{ color: secondary, textShadow: `0 0 20px ${primary}88` }}>
+                  {totalScore}
+                </div>
+                <div className="text-xs text-[#9ca3af] mt-1">
+                  {totalScore >= 80 ? "杰出" : totalScore >= 60 ? "优秀" : totalScore >= 40 ? "良好" : "尚需磨练"}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ===== STEP 2: PORTRAIT ===== */}
+        {step === "portrait" && (
+          <div className="w-full max-w-4xl flex flex-col items-center">
+            <h2 className="text-2xl font-bold mb-2 text-[#e8dcc8]" style={{ fontFamily: "'Cinzel', serif", textShadow: "0 0 12px #c9a84c88" }}>
+              巫师肖像
+            </h2>
+            <p className="text-sm text-[#9ca3af] mb-6">分院帽将为你的照片施展幻身咒，呈现你身着学院服饰的英姿</p>
+
+            {!photoGenerated ? (
+              <div className="flex flex-col items-center gap-4">
+                <div
+                  className="w-64 h-64 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center gap-3"
+                  style={{ borderColor: `${primary}55`, background: `${primary}0d` }}
+                >
+                  <Camera className="w-12 h-12" style={{ color: `${primary}88` }} />
+                  <span className="text-sm text-[#9ca3af]">点击下方按钮拍照</span>
+                </div>
+                {photoError && (
+                  <div className="text-sm text-red-400 bg-red-950/50 px-4 py-2 rounded-lg">{photoError}</div>
+                )}
+                <div className="flex gap-3">
+                  <Button
+                    onClick={handleTakePhoto}
+                    disabled={photoLoading}
+                    className="px-6 py-3 text-base font-bold rounded-lg"
+                    style={{
+                      background: `linear-gradient(135deg, ${primary}, ${secondary})`,
+                      color: "#0a0e1a",
+                    }}
+                  >
+                    {photoLoading ? (
+                      <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                    ) : (
+                      <Camera className="w-5 h-5 mr-2" />
+                    )}
+                    {photoLoading ? "施展幻身咒中..." : "拍照"}
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center gap-4">
+                {generatedImageUrl ? (
+                  <div className="flex flex-col items-center gap-4">
+                    <div className="relative rounded-xl overflow-hidden border-2" style={{ borderColor: `${primary}66`, boxShadow: `0 0 40px ${primary}33` }}>
+                      <img
+                        src={generatedImageUrl}
+                        alt="巫师肖像"
+                        className="w-full max-w-md object-contain"
+                        style={{ maxHeight: "50vh" }}
+                      />
+                      {/* QR Code overlay */}
+                      {qrCodeDataUrl && (
+                        <div
+                          className="absolute bottom-3 left-3 p-2 rounded-lg flex flex-col items-center gap-1"
+                          style={{ background: "rgba(10,14,26,0.85)", backdropFilter: "blur(8px)" }}
+                        >
+                          <img src={qrCodeDataUrl} alt="扫码保存" className="w-24 h-24" />
+                          <span className="text-[10px] text-[#9ca3af]">手机扫码保存</span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex gap-3">
+                      <Button
+                        variant="outline"
+                        onClick={handleRetake}
+                        className="rounded-lg border-[#374151] text-[#e8dcc8] hover:bg-[#1f2937]"
+                      >
+                        <RotateCcw className="w-4 h-4 mr-2" />
+                        重拍
+                      </Button>
+                      <Button
+                        onClick={() => setStep("badge")}
+                        className="px-6 py-3 text-base font-bold rounded-lg"
+                        style={{
+                          background: `linear-gradient(135deg, ${primary}, ${secondary})`,
+                          color: "#0a0e1a",
+                        }}
+                      >
+                        <ChevronRight className="w-5 h-5 mr-1" />
+                        下一步：专属徽章
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="w-16 h-16 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: primary }} />
+                    <p className="text-sm text-[#9ca3af]">正在施展幻身咒...</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ===== STEP 3: BADGE ===== */}
+        {step === "badge" && (
+          <div className="w-full max-w-2xl flex flex-col items-center">
+            <h2 className="text-2xl font-bold mb-2 text-[#e8dcc8]" style={{ fontFamily: "'Cinzel', serif", textShadow: "0 0 12px #c9a84c88" }}>
+              专属徽章
+            </h2>
+            <p className="text-sm text-[#9ca3af] mb-6">
+              以你表现最出色的咒语「{bestSpell?.spell.nameCn ?? "未知"}」为灵感铸造
+            </p>
+
+            <div className="flex flex-col items-center gap-6">
+              {badgeUrl ? (
+                <div
+                  className="relative rounded-2xl overflow-hidden border-2 p-2"
+                  style={{
+                    borderColor: `${primary}66`,
+                    boxShadow: `0 0 40px ${primary}33, inset 0 0 60px ${primary}11`,
+                    background: "rgba(15,15,30,0.6)",
+                  }}
+                >
+                  <img
+                    src={badgeUrl}
+                    alt={`${bestSpell?.spell.nameCn ?? ""}徽章`}
+                    className="w-56 h-56 object-contain"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = "none";
+                      const parent = (e.target as HTMLImageElement).parentElement;
+                      if (parent) {
+                        const fallback = document.createElement("div");
+                        fallback.className = "w-56 h-56 flex items-center justify-center text-6xl";
+                        fallback.textContent = sortedHouse.emoji;
+                        parent.appendChild(fallback);
+                      }
+                    }}
+                  />
+                </div>
+              ) : (
+                <div className="w-56 h-56 rounded-2xl border flex items-center justify-center text-6xl" style={{ borderColor: `${primary}44` }}>
+                  {sortedHouse.emoji}
+                </div>
+              )}
+
+              <div className="text-center">
+                <div className="text-lg font-bold text-[#e8dcc8] mb-1">{bestSpell?.spell.nameCn} 徽章</div>
+                <div className="text-sm text-[#9ca3af]">金属珐琅 · 限定版</div>
+              </div>
+
+              {!badgeForged ? (
+                <Button
+                  onClick={() => setBadgeForged(true)}
+                  className="px-6 py-3 text-base font-bold rounded-lg animate-pulse-glow"
+                  style={{
+                    background: `linear-gradient(135deg, ${primary}, ${secondary})`,
+                    color: "#0a0e1a",
+                  }}
+                >
+                  <Shield className="w-5 h-5 mr-2" />
+                  1 加隆 · 铸造
+                </Button>
+              ) : (
+                <div className="flex flex-col items-center gap-2">
+                  <div className="text-sm font-bold" style={{ color: secondary }}>✨ 徽章已铸成！古灵阁已扣款。</div>
+                  <Button
+                    onClick={() => setStep("wand")}
+                    className="px-6 py-3 text-base font-bold rounded-lg"
+                    style={{
+                      background: `linear-gradient(135deg, ${primary}, ${secondary})`,
+                      color: "#0a0e1a",
+                    }}
+                  >
+                    <ChevronRight className="w-5 h-5 mr-1" />
+                    下一步：魔杖选择
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ===== STEP 4: WAND ===== */}
+        {step === "wand" && (
+          <div className="w-full max-w-4xl flex flex-col lg:flex-row items-center gap-8">
+            {/* Wand image */}
+            <div className="flex flex-col items-center gap-4">
+              <div
+                className="relative rounded-2xl overflow-hidden border-2 p-4"
                 style={{
-                  color: '#9ca3af',
-                  background: 'rgba(255,255,255,0.05)',
-                  border: '1px solid rgba(255,255,255,0.1)',
+                  borderColor: `${primary}66`,
+                  boxShadow: `0 0 40px ${primary}33`,
+                  background: "rgba(15,15,30,0.6)",
                 }}
               >
-                再来一次
-              </button>
-            </>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
+                <img src="/wand.png" alt="魔杖" className="w-32 h-80 object-contain" />
+              </div>
+            </div>
 
-function MiniBar({ label, value, color }: { label: string; value: number; color: string }) {
-  return (
-    <div>
-      <div className="flex justify-between text-[10px] mb-0.5">
-        <span style={{ color: '#9ca3af' }}>{label}</span>
-        <span style={{ color }}>{value}</span>
-      </div>
-      <div className="h-1 rounded-full overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.1)' }}>
-        <div
-          className="h-full rounded-full"
-          style={{ width: `${value}%`, backgroundColor: color, boxShadow: `0 0 6px ${color}40` }}
-        />
+            {/* Wand info */}
+            <div className="flex-1 flex flex-col items-center lg:items-start gap-4">
+              <h2 className="text-2xl font-bold text-[#e8dcc8]" style={{ fontFamily: "'Cinzel', serif", textShadow: "0 0 12px #c9a84c88" }}>
+                你的魔杖
+              </h2>
+
+              {wand ? (
+                <div className="w-full max-w-sm flex flex-col gap-3">
+                  <div className="flex items-center justify-between py-2 border-b border-[#1f2937]">
+                    <span className="text-sm text-[#9ca3af]">杖木</span>
+                    <span className="text-base font-bold text-[#e8dcc8]">{wand.woodCn}</span>
+                  </div>
+                  <div className="flex items-center justify-between py-2 border-b border-[#1f2937]">
+                    <span className="text-sm text-[#9ca3af]">杖芯</span>
+                    <span className="text-base font-bold text-[#e8dcc8]">{wand.coreCn}</span>
+                  </div>
+                  <div className="flex items-center justify-between py-2 border-b border-[#1f2937]">
+                    <span className="text-sm text-[#9ca3af]">长度</span>
+                    <span className="text-base font-bold text-[#e8dcc8]">{wand.length}</span>
+                  </div>
+                  <div className="flex items-center justify-between py-2 border-b border-[#1f2937]">
+                    <span className="text-sm text-[#9ca3af]">弹性</span>
+                    <span className="text-base font-bold text-[#e8dcc8]">{wand.flexibility}</span>
+                  </div>
+                  <div
+                    className="text-sm text-[#e8dcc8] leading-relaxed p-3 rounded-lg"
+                    style={{ background: `${primary}11`, border: `1px solid ${primary}33` }}
+                  >
+                    {wand.description}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-sm text-[#9ca3af]">暂无魔杖推荐</div>
+              )}
+
+              {!wandBought ? (
+                <Button
+                  onClick={() => setWandBought(true)}
+                  className="px-6 py-3 text-base font-bold rounded-lg animate-pulse-glow"
+                  style={{
+                    background: `linear-gradient(135deg, ${primary}, ${secondary})`,
+                    color: "#0a0e1a",
+                  }}
+                >
+                  <Wand2 className="w-5 h-5 mr-2" />
+                  {wand?.price ?? 11} 加隆 · 购买
+                </Button>
+              ) : (
+                <div className="flex flex-col items-center lg:items-start gap-3">
+                  <div className="text-sm font-bold" style={{ color: secondary }}>
+                    ✨ 魔杖已选中！奥利凡德记下了你的选择。
+                  </div>
+                  <Button
+                    onClick={resetGame}
+                    className="px-6 py-3 text-base font-bold rounded-lg"
+                    style={{
+                      background: `linear-gradient(135deg, ${primary}, ${secondary})`,
+                      color: "#0a0e1a",
+                    }}
+                  >
+                    <RotateCcw className="w-5 h-5 mr-2" />
+                    再来一次分院仪式
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

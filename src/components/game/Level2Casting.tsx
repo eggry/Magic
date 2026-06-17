@@ -75,44 +75,6 @@ export default function Level2Casting() {
     ctx.restore();
   }, []);
 
-  const drawTrail = useCallback((ctx: CanvasRenderingContext2D, w: number, h: number, points: Point[]) => {
-    if (points.length < 2) return;
-    ctx.save();
-    ctx.strokeStyle = 'rgba(201, 168, 76, 0.15)';
-    ctx.lineWidth = 18;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.beginPath();
-    ctx.moveTo(points[0].x * w, points[0].y * h);
-    for (let i = 1; i < points.length; i++) ctx.lineTo(points[i].x * w, points[i].y * h);
-    ctx.stroke();
-
-    ctx.strokeStyle = 'rgba(201, 168, 76, 0.4)';
-    ctx.lineWidth = 8;
-    ctx.beginPath();
-    ctx.moveTo(points[0].x * w, points[0].y * h);
-    for (let i = 1; i < points.length; i++) ctx.lineTo(points[i].x * w, points[i].y * h);
-    ctx.stroke();
-
-    ctx.strokeStyle = 'rgba(255, 220, 100, 0.9)';
-    ctx.lineWidth = 3;
-    ctx.shadowColor = 'rgba(201, 168, 76, 0.8)';
-    ctx.shadowBlur = 15;
-    ctx.beginPath();
-    ctx.moveTo(points[0].x * w, points[0].y * h);
-    for (let i = 1; i < points.length; i++) ctx.lineTo(points[i].x * w, points[i].y * h);
-    ctx.stroke();
-
-    const last = points[points.length - 1];
-    ctx.beginPath();
-    ctx.arc(last.x * w, last.y * h, 6, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(255, 240, 150, 0.9)';
-    ctx.shadowColor = 'rgba(255, 220, 100, 1)';
-    ctx.shadowBlur = 20;
-    ctx.fill();
-    ctx.restore();
-  }, []);
-
   const startCamera = useCallback(async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -203,13 +165,12 @@ export default function Level2Casting() {
         if (ctx) {
           ctx.clearRect(0, 0, w, h);
           drawPattern(ctx, w, h, 0.6);
-          drawTrail(ctx, w, h, pointsRef.current);
         }
       }
       animFrameRef.current = requestAnimationFrame(render);
     };
     animFrameRef.current = requestAnimationFrame(render);
-  }, [detectBrightPoint, drawPattern, drawTrail]);
+  }, [detectBrightPoint, drawPattern]);
 
   useEffect(() => {
     if (phase !== 'countdown') return;
