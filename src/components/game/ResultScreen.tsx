@@ -29,6 +29,7 @@ export default function ResultScreen() {
   const [badgeUrl, setBadgeUrl] = useState<string | null>(null);
   const [badgeLoading, setBadgeLoading] = useState(false);
   const badgeFetchingRef = useRef(false);
+  const [badgeForged, setBadgeForged] = useState(false);
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string | null>(null);
   const [showWand, setShowWand] = useState(false);
   const [wandPurchased, setWandPurchased] = useState(false);
@@ -229,14 +230,7 @@ export default function ResultScreen() {
   });
 
   return (
-    <div className="h-screen w-screen overflow-hidden flex flex-col items-center justify-center px-6 py-4 text-center">
-      {/* Progress indicator */}
-      <div className="absolute top-4 left-1/2 -translate-x-1/2 flex items-center gap-2 z-10" style={{ color: '#9ca3af' }}>
-        <span style={{ color: '#c9a84c' }}>●</span>
-        <span style={{ color: '#c9a84c' }}>●</span>
-        <span style={{ color: '#c9a84c' }}>●</span>
-        <span style={{ color: '#c9a84c' }}>分院结果</span>
-      </div>
+    <div className="h-screen w-screen overflow-hidden flex flex-col items-center justify-center px-6 py-3 text-center">
 
       {/* Photo capture phase */}
       {phase === 'photo' && (
@@ -308,10 +302,18 @@ export default function ResultScreen() {
 
       {/* Revealing phase & Done — horizontal desktop layout */}
       {(phase === 'revealing' || phase === 'done') && (
-        <div className="w-full h-full flex flex-col items-center justify-center max-w-[1400px]">
-          {/* House name reveal — always at top center */}
+        <div className="w-full h-full flex flex-col items-center max-w-[1400px]">
+          {/* Progress indicator — in flow, not absolute */}
+          <div className="flex items-center gap-2 mb-2 shrink-0" style={{ color: '#9ca3af' }}>
+            <span style={{ color: '#c9a84c' }}>●</span>
+            <span style={{ color: '#c9a84c' }}>●</span>
+            <span style={{ color: '#c9a84c' }}>●</span>
+            <span style={{ color: '#c9a84c' }}>分院结果</span>
+          </div>
+
+          {/* House name reveal */}
           <h1
-            className="text-5xl font-black tracking-widest mb-1"
+            className="text-5xl font-black tracking-widest mb-1 shrink-0"
             style={{
               fontFamily: "'Cinzel', serif",
               color: '#ffffff',
@@ -331,20 +333,20 @@ export default function ResultScreen() {
           {phase === 'done' && (
             <>
               <p
-                className="text-lg mb-1"
+                className="text-lg mb-1 shrink-0"
                 style={{ color: house.colors.secondary, fontFamily: "'Cinzel', serif" }}
               >
                 {house.motto}
               </p>
 
               {sortedHouse && (
-                <p className="text-sm italic mb-3 px-4" style={{ color: '#c9a84c' }}>
+                <p className="text-sm italic mb-2 px-4 shrink-0" style={{ color: '#c9a84c' }}>
                   🎩 &ldquo;{sortedHouse.hatMessage}&rdquo;
                 </p>
               )}
 
               {/* ===== Main 2-column layout ===== */}
-              <div className="flex gap-4 w-full flex-1 min-h-0 max-h-[calc(100vh-200px)]">
+              <div className="flex gap-4 w-full flex-1 min-h-0 max-h-[calc(100vh-180px)]">
 
                 {/* LEFT: Generated Image + QR */}
                 <div className="flex flex-col items-center justify-center gap-3" style={{ flex: '1.1' }}>
@@ -354,22 +356,22 @@ export default function ResultScreen() {
                       style={{
                         border: `2px solid ${house.colors.secondary}60`,
                         boxShadow: `0 0 30px ${house.colors.secondary}30`,
-                        maxHeight: 'calc(100vh - 340px)',
+                        maxHeight: 'calc(100vh - 380px)',
                       }}
                     >
                       <img
                         src={generatedImageUrl}
                         alt="Your wizard portrait"
                         className="w-full h-full object-contain"
-                        style={{ maxHeight: 'calc(100vh - 340px)' }}
+                        style={{ maxHeight: 'calc(100vh - 380px)' }}
                       />
                     </div>
                   ) : photoDataUrl ? (
                     <div
                       className="relative rounded-xl overflow-hidden w-full"
-                      style={{ border: `2px solid ${house.colors.secondary}60`, maxHeight: 'calc(100vh - 340px)' }}
+                      style={{ border: `2px solid ${house.colors.secondary}60`, maxHeight: 'calc(100vh - 380px)' }}
                     >
-                      <img src={photoDataUrl} alt="Your photo" className="w-full object-contain" style={{ maxHeight: 'calc(100vh - 340px)' }} />
+                      <img src={photoDataUrl} alt="Your photo" className="w-full object-contain" style={{ maxHeight: 'calc(100vh - 380px)' }} />
                       <div
                         className="absolute bottom-0 left-0 right-0 px-4 py-2 text-center font-bold text-lg"
                         style={{
@@ -386,7 +388,7 @@ export default function ResultScreen() {
                       style={{
                         background: 'rgba(15, 15, 30, 0.85)',
                         border: `1px solid ${house.colors.secondary}30`,
-                        maxHeight: 'calc(100vh - 340px)',
+                        maxHeight: 'calc(100vh - 380px)',
                         aspectRatio: '16/10',
                       }}
                     >
@@ -396,16 +398,16 @@ export default function ResultScreen() {
 
                   {/* QR Code — large and prominent */}
                   {qrCodeDataUrl && (
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-4 shrink-0">
                       <img
                         src={qrCodeDataUrl}
                         alt="扫码保存图片"
                         className="rounded-lg"
-                        style={{ width: 88, height: 88, imageRendering: 'pixelated', border: `1px solid ${house.colors.secondary}30` }}
+                        style={{ width: 140, height: 140, imageRendering: 'pixelated', border: `2px solid ${house.colors.secondary}40` }}
                       />
                       <div className="text-left">
-                        <p className="text-sm font-bold" style={{ color: house.colors.secondary }}>扫码保存</p>
-                        <p className="text-xs" style={{ color: '#9ca3af' }}>手机扫码下载你的巫师肖像</p>
+                        <p className="text-base font-bold" style={{ color: house.colors.secondary }}>扫码保存</p>
+                        <p className="text-sm" style={{ color: '#9ca3af' }}>手机扫码下载<br/>你的巫师肖像</p>
                       </div>
                     </div>
                   )}
@@ -545,9 +547,28 @@ export default function ResultScreen() {
                           </div>
 
                           <p className="text-sm font-bold" style={{ color: house.colors.secondary }}>{bestSpell.nameCn}</p>
-                          <p className="text-[11px]" style={{ color: '#9ca3af' }}>
+                          <p className="text-[11px] mb-2" style={{ color: '#9ca3af' }}>
                             {bestCategory === 'dark' || bestCategory === 'unforgivable' ? '暗黑之力' : bestCategory === 'defense' ? '守护之光' : bestCategory === 'combat' ? '战斗之魂' : '万象灵光'}
                           </p>
+
+                          {!badgeForged ? (
+                            <button
+                              onClick={() => setBadgeForged(true)}
+                              className="w-full px-4 py-2 rounded-lg text-xs font-bold tracking-wider transition-all duration-300 cursor-pointer"
+                              style={{
+                                fontFamily: "'Cinzel', serif",
+                                color: '#0a0e1a',
+                                background: `linear-gradient(135deg, ${house.colors.secondary}, ${house.colors.secondary}cc)`,
+                                boxShadow: `0 0 15px ${house.colors.secondary}40`,
+                              }}
+                            >
+                              1 加隆 · 铸造
+                            </button>
+                          ) : (
+                            <p className="text-xs" style={{ color: house.colors.secondary }}>
+                              徽章已铸成！古灵阁已扣款。
+                            </p>
+                          )}
                         </div>
                       );
                     })()}
@@ -611,7 +632,7 @@ export default function ResultScreen() {
               {/* Restart — at the very bottom */}
               <button
                 onClick={resetGame}
-                className="mt-3 px-6 py-1.5 rounded-lg text-xs cursor-pointer"
+                className="mt-2 shrink-0 px-6 py-1.5 rounded-lg text-xs cursor-pointer"
                 style={{
                   color: '#9ca3af',
                   background: 'rgba(255,255,255,0.05)',
