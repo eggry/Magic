@@ -207,7 +207,7 @@ export default function ResultScreen() {
   useEffect(() => {
     if (!generatedImageUrl || qrCodeDataUrl) return;
     QRCode.toDataURL(generatedImageUrl, {
-      width: 140,
+      width: 280,
       margin: 1,
       color: { dark: '#c9a84c', light: '#0a0e1a' },
     }).then(setQrCodeDataUrl).catch(() => {
@@ -648,7 +648,7 @@ export default function ResultScreen() {
                         <img
                           src={qrCodeDataUrl}
                           alt="扫码保存图片"
-                          className="w-10 h-10"
+                          className="w-16 h-16"
                           style={{ imageRendering: 'pixelated' }}
                         />
                       </div>
