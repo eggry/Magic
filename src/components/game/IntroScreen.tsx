@@ -68,21 +68,11 @@ export default function IntroScreen() {
         />
       </div>
 
-      <h1
-        className="text-4xl sm:text-5xl font-bold mb-4 tracking-wider"
-        style={{
-          fontFamily: "'Cinzel', serif",
-          color: '#c9a84c',
-          textShadow: '0 0 20px rgba(201, 168, 76, 0.5), 0 0 40px rgba(201, 168, 76, 0.2)',
-        }}
-      >
+      <h1 className="text-4xl sm:text-5xl font-bold mb-2 tracking-wider text-embossed-gold-lg">
         Sorting Ceremony
       </h1>
 
-      <p
-        className="text-lg sm:text-xl mb-2"
-        style={{ fontFamily: "'Noto Serif SC', serif", color: '#e8dcc8' }}
-      >
+      <p className="text-lg sm:text-xl mb-2 text-embossed-gold">
         霍格沃茨分院仪式
       </p>
 

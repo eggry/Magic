@@ -134,14 +134,7 @@ export default function PhotoCapture() {
         transition={{ delay: 0.2 }}
         className="relative z-10 mb-6 text-center"
       >
-        <h2
-          className="text-2xl font-bold"
-          style={{
-            color: "#c9a84c",
-            textShadow: "0 0 15px rgba(201,168,76,0.5), 0 2px 4px rgba(0,0,0,0.8)",
-            fontFamily: "'Cinzel', serif",
-          }}
-        >
+        <h2 className="text-2xl font-bold text-embossed-gold-lg">
           巫师肖像采集
         </h2>
         <p className="mt-1 text-sm" style={{ color: "#9ca3af" }}>

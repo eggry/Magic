@@ -608,11 +608,8 @@ export default function Level1Chanting() {
       {/* Countdown */}
       {phase === 'countdown' && countdown > 0 && (
         <div
-          className="text-8xl font-bold mb-6"
+          className="text-8xl font-bold mb-6 text-embossed-gold-lg"
           style={{
-            fontFamily: "'Cinzel', serif",
-            color: '#c9a84c',
-            textShadow: '0 0 30px rgba(201, 168, 76, 0.7)',
             animation: 'countdownPulse 1s ease-in-out',
           }}
         >
@@ -673,7 +670,7 @@ export default function Level1Chanting() {
       {phase === 'done' && finalResult && (
         <div className="flex flex-col items-center gap-3">
           <div className="text-4xl" style={{ animation: 'hatWobble 2s ease-in-out infinite' }}>🎩</div>
-          <p className="text-lg" style={{ color: '#c9a84c', fontFamily: "'Noto Serif SC', serif" }}>
+          <p className="text-2xl font-bold text-embossed-gold">
             念咒考核完成
           </p>
           <p className="text-sm" style={{ color: '#9ca3af' }}>即将进入施咒考验...</p>

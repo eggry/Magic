@@ -130,7 +130,7 @@ function ReportStep({
     <div className="mx-auto flex h-full w-full max-w-[1400px] flex-col items-center justify-center gap-4">
       {/* 标题 */}
       <div className="text-center">
-        <h1 className="text-5xl font-black tracking-wider text-glow-gold" style={{ fontFamily: "Cinzel, serif", color: "#c9a84c" }}>
+        <h1 className="text-5xl font-black tracking-wider text-embossed-gold-lg">
           巫师评估报告
         </h1>
         <p className="mt-1 text-xl" style={{ color: "#9ca3af", fontFamily: "Noto Serif SC, serif" }}>
@@ -145,7 +145,7 @@ function ReportStep({
           <div className="flex flex-col gap-4">
             <div>
               <p className="mb-1 text-lg font-bold" style={{ color: "#c9a84c", fontFamily: "Noto Serif SC, serif" }}>分院结果</p>
-              <h2 className="text-5xl font-black" style={{ fontFamily: "Cinzel, serif", color: colors.primary, textShadow: `0 0 20px ${colors.glow}` }}>
+              <h2 className="text-5xl font-black text-embossed-gold-lg">
                 {house.nameCn}
               </h2>
               <p className="mt-1 text-lg italic" style={{ color: "#9ca3af" }}>{house.hatMessage}</p>
@@ -258,7 +258,7 @@ function BadgeStep({
   return (
     <div className="mx-auto flex h-full w-full max-w-[1200px] flex-col items-center justify-center gap-6">
       <div className="text-center">
-        <h1 className="text-6xl font-black tracking-wider text-glow-gold" style={{ fontFamily: "Cinzel, serif", color: "#c9a84c" }}>
+        <h1 className="text-6xl font-black tracking-wider text-embossed-gold-lg">
           专属徽章
         </h1>
         <p className="mt-2 text-2xl" style={{ color: "#9ca3af", fontFamily: "Noto Serif SC, serif" }}>
@@ -282,7 +282,7 @@ function BadgeStep({
               <span className="text-8xl">🎖️</span>
             )}
           </div>
-          <p className="text-3xl font-black" style={{ fontFamily: "Cinzel, serif", color: "#c9a84c" }}>
+          <p className="text-3xl font-black text-embossed-gold">
             {bestSpell?.spell.nameCn ?? "未知咒语"}
           </p>
         </div>
@@ -367,7 +367,7 @@ function WandStep({
   return (
     <div className="mx-auto flex h-full w-full max-w-[1200px] flex-col items-center justify-center gap-5">
       <div className="text-center">
-        <h1 className="text-6xl font-black tracking-wider text-glow-gold" style={{ fontFamily: "Cinzel, serif", color: "#c9a84c" }}>
+        <h1 className="text-6xl font-black tracking-wider text-embossed-gold-lg">
           你的魔杖
         </h1>
         <p className="mt-1 text-2xl" style={{ color: "#9ca3af", fontFamily: "Noto Serif SC, serif" }}>
@@ -387,7 +387,7 @@ function WandStep({
           >
             <img src="/wand.png" alt="魔杖" className="h-[220px] w-auto object-contain drop-shadow-2xl" />
           </div>
-          <p className="text-3xl font-black" style={{ fontFamily: "Cinzel, serif", color: "#c9a84c" }}>
+          <p className="text-3xl font-black text-embossed-gold">
             {wand?.name ?? "神秘魔杖"}
           </p>
           <p className="text-xl" style={{ color: "#9ca3af" }}>
@@ -452,10 +452,10 @@ function PortraitStep({
   return (
     <div className="mx-auto flex h-full w-full max-w-[1400px] flex-col items-center justify-center gap-6">
       <div className="text-center">
-        <h1 className="text-6xl font-black tracking-wider text-glow-gold" style={{ fontFamily: "Cinzel, serif", color: "#c9a84c" }}>
+        <h1 className="text-6xl font-black tracking-wider text-embossed-gold-lg">
           巫师肖像
         </h1>
-        <p className="mt-2 text-3xl font-bold" style={{ color: "#c9a84c", textShadow: `0 0 20px ${colors.glow}`, fontFamily: "Noto Serif SC, serif" }}>
+        <p className="mt-2 text-3xl font-bold text-embossed-gold-lg">
           {house.nameCn}
         </p>
       </div>
