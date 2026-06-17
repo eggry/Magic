@@ -149,18 +149,19 @@ export default function PhotoCapture() {
         transition={{ delay: 0.4 }}
         className="relative z-10"
       >
-        <div
-          className="relative overflow-hidden rounded-xl border-2"
-          style={{
-            width: "480px",
-            maxWidth: "80vw",
-            height: "360px",
-            borderColor: photoTaken ? houseColor : "rgba(201,168,76,0.4)",
-            boxShadow: photoTaken
-              ? `0 0 30px ${houseColor}40`
-              : "0 0 20px rgba(201,168,76,0.15)",
-          }}
-        >
+        <div className="parchment-card corner-ornament-all rounded-xl p-3">
+          <div
+            className="relative overflow-hidden rounded-lg"
+            style={{
+              width: "480px",
+              maxWidth: "78vw",
+              height: "340px",
+              border: `2px solid ${photoTaken ? houseColor : "rgba(201,168,76,0.3)"}`,
+              boxShadow: photoTaken
+                ? `inset 0 0 40px ${houseColor}30`
+                : "inset 0 0 20px rgba(201,168,76,0.05)",
+            }}
+          >
           <video
             ref={videoRef}
             autoPlay
@@ -184,6 +185,7 @@ export default function PhotoCapture() {
               />
             </div>
           )}
+          </div>
         </div>
 
         {/* shutter button */}

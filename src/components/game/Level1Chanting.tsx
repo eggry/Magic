@@ -501,65 +501,64 @@ export default function Level1Chanting() {
 
       {/* Current Spell Display */}
       {(phase === 'ready' || phase === 'countdown' || phase === 'listening' || phase === 'transition') && currentSpell && (
-        <div
-          className="mb-6 px-8 py-5 rounded-xl w-full max-w-md"
-          style={{
-            background: 'rgba(15, 15, 30, 0.8)',
-            backdropFilter: 'blur(12px)',
-            border: `1px solid ${getCategoryColor(currentSpell.category)}40`,
-            boxShadow: `0 0 20px ${getCategoryColor(currentSpell.category)}10`,
-          }}
-        >
-          {/* Category badge */}
-          <div
-            className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold mb-3"
-            style={{
-              backgroundColor: getCategoryBg(currentSpell.category),
-              color: getCategoryColor(currentSpell.category),
-              border: `1px solid ${getCategoryColor(currentSpell.category)}30`,
-            }}
-          >
-            {currentSpell.categoryEmoji} {currentSpell.categoryLabel}
-          </div>
-
-          <p className="text-sm mb-1" style={{ color: '#9ca3af' }}>
-            {currentSpellIndex + 1} / {spells.length} — 念出这个咒语
-          </p>
-          {/* 中文咒语名 — 大字显示，这是用户要念的 */}
-          <h2
-            className="text-4xl sm:text-5xl font-bold mb-2 tracking-widest"
-            style={{
-              fontFamily: "'Noto Serif SC', serif",
-              color: currentSpell.category === 'unforgivable' ? '#ef4444'
-                : currentSpell.category === 'dark' ? '#8b5cf6'
-                : '#c9a84c',
-              textShadow: `0 0 15px ${getCategoryColor(currentSpell.category)}60`,
-            }}
-          >
-            {currentSpell.nameCn}
-          </h2>
-          {/* 拉丁原名 — 小字辅助 */}
-          <p className="text-sm mb-1" style={{ color: '#9ca3af', fontFamily: "'Cinzel Decorative', serif" }}>
-            {currentSpell.name}
-          </p>
-          <p className="text-sm" style={{ color: '#9ca3af' }}>
-            中文发音: [{currentSpell.incantationCn}]
-          </p>
-          <p className="text-sm mt-2" style={{ color: '#9ca3af' }}>
-            {currentSpell.description}
-          </p>
-
-          {/* Dark/unforgivable warning */}
-          {(currentSpell.category === 'dark' || currentSpell.category === 'unforgivable') && (
-            <p
-              className="text-xs mt-3 italic"
+        <div className="parchment-card corner-ornament-all rounded-xl mb-6 w-full max-w-md p-6">
+          <div className="relative z-10">
+            {/* Category badge */}
+            <div
+              className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold mb-4"
               style={{
-                color: currentSpell.category === 'unforgivable' ? '#ef4444' : '#8b5cf6',
+                backgroundColor: getCategoryBg(currentSpell.category),
+                color: getCategoryColor(currentSpell.category),
+                border: `1px solid ${getCategoryColor(currentSpell.category)}30`,
               }}
             >
-              ⚠️ 分院帽说：你可以拒绝念这个咒语，但如果你坚定地念出它...
+              {currentSpell.categoryEmoji} {currentSpell.categoryLabel}
+            </div>
+
+            <div className="magic-divider mb-3" style={{ color: 'rgba(201,168,76,0.3)' }}>
+              <span className="text-xs tracking-wider" style={{ fontFamily: "'Cinzel', serif", color: 'rgba(201,168,76,0.5)' }}>
+                Spell {currentSpellIndex + 1} / {spells.length}
+              </span>
+            </div>
+
+            {/* 中文咒语名 — 大字显示，这是用户要念的 */}
+            <h2
+              className="text-4xl sm:text-5xl font-bold mb-2 tracking-widest"
+              style={{
+                fontFamily: "'Noto Serif SC', serif",
+                color: currentSpell.category === 'unforgivable' ? '#ef4444'
+                  : currentSpell.category === 'dark' ? '#8b5cf6'
+                  : '#c9a84c',
+                textShadow: `0 0 15px ${getCategoryColor(currentSpell.category)}60`,
+              }}
+            >
+              {currentSpell.nameCn}
+            </h2>
+            {/* 拉丁原名 — 小字辅助 */}
+            <p className="text-sm mb-2" style={{ color: 'rgba(156,163,175,0.8)', fontFamily: "'Cinzel Decorative', serif" }}>
+              {currentSpell.name}
             </p>
-          )}
+            <p className="text-sm" style={{ color: 'rgba(201,168,76,0.6)' }}>
+              中文发音: [{currentSpell.incantationCn}]
+            </p>
+            <p className="text-sm mt-3" style={{ color: 'rgba(212,197,169,0.7)' }}>
+              {currentSpell.description}
+            </p>
+
+            {/* Dark/unforgivable warning */}
+            {(currentSpell.category === 'dark' || currentSpell.category === 'unforgivable') && (
+              <p
+                className="text-xs mt-4 italic px-3 py-2 rounded"
+                style={{
+                  color: currentSpell.category === 'unforgivable' ? '#ef4444' : '#8b5cf6',
+                  background: currentSpell.category === 'unforgivable' ? 'rgba(239,68,68,0.08)' : 'rgba(139,92,246,0.08)',
+                  border: `1px solid ${currentSpell.category === 'unforgivable' ? 'rgba(239,68,68,0.15)' : 'rgba(139,92,246,0.15)'}`,
+                }}
+              >
+                ⚠️ 分院帽说：你可以拒绝念这个咒语，但如果你坚定地念出它...
+              </p>
+            )}
+          </div>
         </div>
       )}
 
@@ -656,10 +655,10 @@ export default function Level1Chanting() {
 
       {/* Transition between spells — auto-advances */}
       {phase === 'transition' && (
-        <div className="flex flex-col items-center gap-4">
-          <div className="text-4xl" style={{ animation: 'hatWobble 2s ease-in-out infinite' }}>🎩</div>
-          <p style={{ color: '#c9a84c' }}>分院帽记下了...</p>
-          <p className="text-sm" style={{ color: '#9ca3af' }}>即将进入下一个咒语</p>
+        <div className="parchment-card corner-ornament-all rounded-xl p-8 flex flex-col items-center gap-4">
+          <div className="text-5xl" style={{ animation: 'hatWobble 2s ease-in-out infinite' }}>🎩</div>
+          <p className="text-xl" style={{ color: '#c9a84c', fontFamily: "'Noto Serif SC', serif" }}>分院帽记下了...</p>
+          <p className="text-sm" style={{ color: 'rgba(156,163,175,0.7)' }}>即将进入下一个咒语</p>
         </div>
       )}
 
@@ -668,12 +667,15 @@ export default function Level1Chanting() {
 
       {/* Done: auto-proceed to next level */}
       {phase === 'done' && finalResult && (
-        <div className="flex flex-col items-center gap-3">
-          <div className="text-4xl" style={{ animation: 'hatWobble 2s ease-in-out infinite' }}>🎩</div>
-          <p className="text-2xl font-bold text-embossed-gold">
+        <div className="parchment-card corner-ornament-all rounded-xl p-8 flex flex-col items-center gap-4">
+          <div className="text-5xl" style={{ animation: 'hatWobble 2s ease-in-out infinite' }}>🎩</div>
+          <p className="text-3xl font-bold text-embossed-gold">
             念咒考核完成
           </p>
-          <p className="text-sm" style={{ color: '#9ca3af' }}>即将进入施咒考验...</p>
+          <div className="magic-divider w-full my-1">
+            <span className="text-xs" style={{ color: 'rgba(201,168,76,0.4)' }}>✦</span>
+          </div>
+          <p className="text-sm" style={{ color: 'rgba(156,163,175,0.7)' }}>即将进入施咒考验...</p>
         </div>
       )}
     </div>

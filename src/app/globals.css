@@ -426,3 +426,207 @@
   );
   pointer-events: none;
 }
+
+/* ===== 蜡烛闪烁动画 ===== */
+@keyframes candleFlicker {
+  0%, 100% { transform: translateX(-50%) scale(1, 1); opacity: 1; }
+  25% { transform: translateX(-50%) scale(0.9, 1.15); opacity: 0.9; }
+  50% { transform: translateX(-50%) scale(1.1, 0.85); opacity: 0.95; }
+  75% { transform: translateX(-50%) scale(0.95, 1.05); opacity: 0.85; }
+}
+
+/* ===== 魔法卷轴揭示动画 ===== */
+@keyframes scrollReveal {
+  0% {
+    clip-path: inset(0 0 100% 0);
+    opacity: 0;
+  }
+  30% {
+    clip-path: inset(0 0 70% 0);
+    opacity: 0.3;
+  }
+  100% {
+    clip-path: inset(0 0 0% 0);
+    opacity: 1;
+  }
+}
+
+.scroll-reveal {
+  animation: scrollReveal 1.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+}
+
+/* ===== 牛皮纸/羊皮纸质感卡片 ===== */
+.parchment-card {
+  position: relative;
+  background:
+    radial-gradient(ellipse at 20% 30%, rgba(212,197,169,0.12) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 70%, rgba(184,165,124,0.08) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 50%, rgba(201,168,76,0.06) 0%, transparent 70%),
+    linear-gradient(170deg, rgba(20,16,12,0.92) 0%, rgba(15,12,8,0.95) 50%, rgba(18,14,10,0.93) 100%);
+  border: 1.5px solid rgba(201,168,76,0.25);
+  box-shadow:
+    inset 0 0 60px rgba(201,168,76,0.04),
+    inset 0 0 120px rgba(139,90,43,0.03),
+    0 8px 32px rgba(0,0,0,0.5),
+    0 0 0 1px rgba(201,168,76,0.08);
+  overflow: hidden;
+}
+
+.parchment-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  opacity: 0.025;
+  mix-blend-mode: overlay;
+  pointer-events: none;
+}
+
+/* 牛皮纸四角装饰 */
+.parchment-card::after {
+  content: "";
+  position: absolute;
+  inset: 6px;
+  border: 1px solid rgba(201,168,76,0.1);
+  pointer-events: none;
+}
+
+/* ===== 金色角饰 ===== */
+.corner-ornament {
+  position: relative;
+}
+.corner-ornament::before,
+.corner-ornament::after {
+  content: "";
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  pointer-events: none;
+}
+.corner-ornament::before {
+  top: -1px;
+  left: -1px;
+  border-top: 2px solid rgba(201,168,76,0.5);
+  border-left: 2px solid rgba(201,168,76,0.5);
+}
+.corner-ornament::after {
+  bottom: -1px;
+  right: -1px;
+  border-bottom: 2px solid rgba(201,168,76,0.5);
+  border-right: 2px solid rgba(201,168,76,0.5);
+}
+
+/* 四个角都有装饰 */
+.corner-ornament-all {
+  position: relative;
+}
+.corner-ornament-all::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    /* top-left */
+    linear-gradient(135deg, rgba(201,168,76,0.5) 0%, rgba(201,168,76,0.5) 2px, transparent 2px) top 0 left 0,
+    linear-gradient(135deg, transparent calc(100% - 2px), rgba(201,168,76,0.5) calc(100% - 2px), rgba(201,168,76,0.5) 100%) top 16px left 0,
+    /* top-right */
+    linear-gradient(-135deg, rgba(201,168,76,0.5) 0%, rgba(201,168,76,0.5) 2px, transparent 2px) top 0 right 0,
+    linear-gradient(-135deg, transparent calc(100% - 2px), rgba(201,168,76,0.5) calc(100% - 2px), rgba(201,168,76,0.5) 100%) top 16px right 0,
+    /* bottom-left */
+    linear-gradient(45deg, rgba(201,168,76,0.5) 0%, rgba(201,168,76,0.5) 2px, transparent 2px) bottom 0 left 0,
+    linear-gradient(45deg, transparent calc(100% - 2px), rgba(201,168,76,0.5) calc(100% - 2px), rgba(201,168,76,0.5) 100%) bottom 16px left 0,
+    /* bottom-right */
+    linear-gradient(-45deg, rgba(201,168,76,0.5) 0%, rgba(201,168,76,0.5) 2px, transparent 2px) bottom 0 right 0,
+    linear-gradient(-45deg, transparent calc(100% - 2px), rgba(201,168,76,0.5) calc(100% - 2px), rgba(201,168,76,0.5) 100%) bottom 16px right 0;
+  background-size: 16px 2px, 2px 16px;
+  background-repeat: no-repeat;
+}
+
+/* ===== 魔法按钮 ===== */
+.btn-magic {
+  position: relative;
+  background: linear-gradient(145deg, #2a1f0f 0%, #1a1408 40%, #0f0b05 100%);
+  border: 1.5px solid rgba(201,168,76,0.4);
+  color: #c9a84c;
+  font-family: 'Cinzel', 'Noto Serif SC', serif;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+  transition: all 0.3s ease;
+  overflow: hidden;
+}
+.btn-magic::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at center, rgba(201,168,76,0.1) 0%, transparent 70%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+.btn-magic:hover {
+  border-color: rgba(201,168,76,0.7);
+  box-shadow: 0 0 20px rgba(201,168,76,0.15), inset 0 0 20px rgba(201,168,76,0.05);
+  transform: translateY(-1px);
+}
+.btn-magic:hover::before {
+  opacity: 1;
+}
+.btn-magic:active {
+  transform: translateY(0);
+}
+
+/* ===== 分院帽摇摆增强 ===== */
+@keyframes hatSwayEnhanced {
+  0%, 100% { transform: rotate(-4deg) translateY(0); }
+  25% { transform: rotate(2deg) translateY(-4px); }
+  50% { transform: rotate(4deg) translateY(0); }
+  75% { transform: rotate(-2deg) translateY(-2px); }
+}
+.hat-sway {
+  animation: hatSwayEnhanced 3.5s ease-in-out infinite;
+}
+
+/* ===== 烟雾效果 ===== */
+@keyframes smokeRise {
+  0% {
+    transform: translateY(0) scale(1);
+    opacity: 0.3;
+  }
+  100% {
+    transform: translateY(-100px) scale(2);
+    opacity: 0;
+  }
+}
+.smoke-particle {
+  position: absolute;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(201,168,76,0.08) 0%, transparent 70%);
+  animation: smokeRise 6s ease-out infinite;
+}
+
+/* ===== 羊皮纸文字区域 ===== */
+.parchment-text {
+  color: #d4c5a9;
+  text-shadow: 0 0 1px rgba(0,0,0,0.5);
+  font-family: 'Noto Serif SC', serif;
+}
+
+@keyframes fadeInOut {
+  0%, 100% { opacity: 0.3; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1); }
+}
+
+/* ===== 魔法分隔线 ===== */
+.magic-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: rgba(201,168,76,0.5);
+}
+.magic-divider::before,
+.magic-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(201,168,76,0.4), transparent);
+}

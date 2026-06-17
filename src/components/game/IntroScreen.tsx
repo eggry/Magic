@@ -77,38 +77,54 @@ export default function IntroScreen() {
       </p>
 
       <p
-        className="text-sm sm:text-base mb-8 max-w-md"
-        style={{ color: '#9ca3af' }}
+        className="text-base sm:text-lg mb-6 max-w-lg parchment-text"
       >
         分院帽将透过你的咒语与魔力，洞察你灵魂深处的品质，决定你将属于哪个学院。
       </p>
 
-      <div className="flex flex-col gap-3 mb-8 text-left max-w-sm w-full px-4">
-        <div className="flex items-center gap-3" style={{ color: '#e8dcc8' }}>
-          <span className="text-xl">🎤</span>
-          <span className="text-sm">第一关：念出咒语 — 用你的声音展现魔力</span>
-        </div>
-        <div className="flex items-center gap-3" style={{ color: '#e8dcc8' }}>
-          <span className="text-xl">🪄</span>
-          <span className="text-sm">第二关：挥舞魔杖 — 用你的手势绘制符文</span>
-        </div>
-        <div className="flex items-center gap-3" style={{ color: '#e8dcc8' }}>
-          <span className="text-xl">📸</span>
-          <span className="text-sm">最终：分院结果 — 穿上你的学院长袍</span>
+      {/* 入学通知书卡片 */}
+      <div className="parchment-card corner-ornament-all rounded-lg p-6 mb-8 max-w-md w-full mx-auto">
+        <div className="relative z-10">
+          <div className="magic-divider mb-4 text-xs tracking-[0.3em] uppercase" style={{ fontFamily: "'Cinzel', serif", color: 'rgba(201,168,76,0.6)' }}>
+            <span>Admission Notice</span>
+          </div>
+
+          <div className="flex flex-col gap-4">
+            {[
+              { icon: '🔮', title: '第一关：念出咒语', desc: '用你的声音展现魔力' },
+              { icon: '✨', title: '第二关：挥舞魔杖', desc: '用你的手势绘制符文' },
+              { icon: '📜', title: '最终：分院结果', desc: '穿上你的学院长袍' },
+            ].map((item, i) => (
+              <div key={i} className="flex items-start gap-4">
+                <span className="text-2xl mt-0.5">{item.icon}</span>
+                <div className="flex-1">
+                  <div className="text-base font-bold" style={{ color: '#c9a84c', fontFamily: "'Noto Serif SC', serif" }}>
+                    {item.title}
+                  </div>
+                  <div className="text-sm mt-0.5" style={{ color: 'rgba(212,197,169,0.7)' }}>
+                    {item.desc}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-4 pt-3 text-center" style={{ borderTop: '1px solid rgba(201,168,76,0.15)' }}>
+            <span className="text-xs italic" style={{ color: 'rgba(201,168,76,0.4)', fontFamily: "'Cinzel', serif" }}>
+              Hogwarts School of Witchcraft and Wizardry
+            </span>
+          </div>
         </div>
       </div>
 
       <button
         onClick={startGame}
-        className="px-8 py-3 rounded-lg text-lg font-bold tracking-wider transition-all duration-300 cursor-pointer"
+        className="btn-magic px-10 py-4 rounded-lg text-lg font-bold tracking-wider cursor-pointer"
         style={{
           fontFamily: "'Cinzel', serif",
-          color: '#0a0e1a',
-          background: 'linear-gradient(135deg, #c9a84c 0%, #d4a017 50%, #c9a84c 100%)',
-          border: 'none',
           boxShadow: hovered
-            ? '0 0 30px rgba(201, 168, 76, 0.6), 0 4px 16px rgba(0,0,0,0.4)'
-            : '0 0 20px rgba(201, 168, 76, 0.4), 0 4px 12px rgba(0,0,0,0.3)',
+            ? '0 0 30px rgba(201, 168, 76, 0.4), 0 4px 16px rgba(0,0,0,0.4)'
+            : '0 0 15px rgba(201, 168, 76, 0.2), 0 4px 12px rgba(0,0,0,0.3)',
           transform: hovered ? 'scale(1.05)' : 'scale(1)',
         }}
         onMouseEnter={() => setHovered(true)}

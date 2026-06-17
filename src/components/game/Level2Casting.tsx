@@ -333,10 +333,10 @@ export default function Level2Casting() {
         </div>
 
         {/* Video + Canvas container */}
-        <div
-          className="relative w-full rounded-xl overflow-hidden"
-          style={{ aspectRatio: '4/3', border: '1px solid rgba(201,168,76,0.3)', background: '#0a0e1a' }}
-        >
+        <div className="parchment-card corner-ornament-all rounded-xl p-2 mb-4">
+          <div className="relative w-full rounded-lg overflow-hidden"
+            style={{ aspectRatio: '4/3', border: '1px solid rgba(201,168,76,0.2)', background: '#0a0e1a' }}
+          >
           {/* Visible video - mirror selfie style */}
           {cameraReady && (
             <video
@@ -387,14 +387,14 @@ export default function Level2Casting() {
               </span>
             </div>
           )}
+          </div>
         </div>
 
         {/* Finish button */}
         {phase === 'drawing' && (
           <button
             onClick={finishDrawing}
-            className="mt-4 px-6 py-2 rounded-lg text-sm font-bold tracking-wider cursor-pointer"
-            style={{ fontFamily: "'Cinzel', serif", color: '#0a0e1a', background: 'linear-gradient(135deg, #c9a84c, #d4a017)' }}
+            className="btn-magic px-8 py-3 rounded-lg text-sm font-bold tracking-wider cursor-pointer"
           >
             画完了
           </button>
@@ -403,24 +403,32 @@ export default function Level2Casting() {
 
       {/* ===== Analyzing ===== */}
       {phase === 'analyzing' && (
-        <div className="flex flex-col items-center justify-center min-h-screen">
+        <div className="parchment-card corner-ornament-all rounded-xl p-10 flex flex-col items-center">
           <div className="text-6xl mb-4" style={{ animation: 'hatWobble 1s ease-in-out infinite' }}>🎩</div>
-          <p className="text-xl" style={{ color: '#c9a84c', textShadow: '0 0 10px rgba(201,168,76,0.4)' }}>分院帽正在解读你的符文...</p>
+          <p className="text-xl" style={{ color: '#c9a84c', textShadow: '0 0 10px rgba(201,168,76,0.4)', fontFamily: "'Noto Serif SC', serif" }}>分院帽正在解读你的符文...</p>
+          <div className="mt-4 flex gap-1">
+            {[0,1,2].map(i => (
+              <div key={i} className="w-2 h-2 rounded-full" style={{ background: '#c9a84c', animation: `fadeInOut 1s ease-in-out infinite`, animationDelay: `${i * 0.3}s` }} />
+            ))}
+          </div>
         </div>
       )}
 
       {/* ===== Done ===== */}
       {phase === 'done' && (
-        <div className="flex flex-col items-center justify-center min-h-screen text-center">
-          <p className="text-4xl font-bold mb-4 text-embossed-gold-lg">符文解读完成</p>
-          <div className="flex gap-8 text-lg">
-            <div>
-              <p style={{ color: '#9ca3af' }}>匹配度</p>
-              <p className="text-3xl font-bold" style={{ color: '#c9a84c' }}>{patternScore}</p>
+        <div className="parchment-card corner-ornament-all rounded-xl p-10 flex flex-col items-center text-center">
+          <p className="text-4xl font-bold mb-6 text-embossed-gold-lg">符文解读完成</p>
+          <div className="magic-divider w-full mb-6">
+            <span className="text-xs" style={{ color: 'rgba(201,168,76,0.4)' }}>✦</span>
+          </div>
+          <div className="flex gap-12 text-lg">
+            <div className="flex flex-col items-center">
+              <p style={{ color: 'rgba(156,163,175,0.7)' }}>匹配度</p>
+              <p className="text-4xl font-bold mt-1" style={{ color: '#c9a84c', fontFamily: "'Cinzel', serif" }}>{patternScore}</p>
             </div>
-            <div>
-              <p style={{ color: '#9ca3af' }}>精度</p>
-              <p className="text-3xl font-bold" style={{ color: '#c9a84c' }}>{precisionScore}</p>
+            <div className="flex flex-col items-center">
+              <p style={{ color: 'rgba(156,163,175,0.7)' }}>精度</p>
+              <p className="text-4xl font-bold mt-1" style={{ color: '#c9a84c', fontFamily: "'Cinzel', serif" }}>{precisionScore}</p>
             </div>
           </div>
         </div>

@@ -139,7 +139,7 @@ function ReportStep({
       </div>
 
       {/* 暗黑主卡片 */}
-      <div className="relative w-full rounded-xl border p-6" style={{ borderColor: "rgba(201,168,76,0.25)", background: "rgba(15,15,30,0.7)", backdropFilter: "blur(10px)" }}>
+      <div className="parchment-card corner-ornament-all relative w-full rounded-xl p-6">
         <div className="relative z-10 grid grid-cols-2 gap-6">
           {/* 左列：分院结果 */}
           <div className="flex flex-col gap-4">
@@ -270,7 +270,7 @@ function BadgeStep({
         {/* 徽章展示 */}
         <div className="flex flex-col items-center gap-6">
           <div
-            className="relative flex h-[280px] w-[280px] items-center justify-center rounded-2xl"
+            className="parchment-card corner-ornament-all relative flex h-[280px] w-[280px] items-center justify-center rounded-2xl"
             style={{
               border: `3px solid ${colors.primary}`,
               boxShadow: `0 0 40px ${colors.glow}`,
@@ -379,7 +379,7 @@ function WandStep({
         {/* 魔杖展示 */}
         <div className="flex flex-col items-center gap-4">
           <div
-            className="relative flex h-[280px] w-[160px] items-center justify-center rounded-2xl"
+            className="parchment-card corner-ornament-all relative flex h-[280px] w-[160px] items-center justify-center rounded-2xl"
             style={{
               border: `3px solid ${colors.primary}`,
               boxShadow: `0 0 40px ${colors.glow}`,
@@ -502,8 +502,8 @@ function PortraitStep({
         {/* 右侧信息 */}
         <div className="flex flex-col items-center gap-8">
           {/* 二维码 */}
-          <div className="flex flex-col items-center gap-3">
-            <p className="text-xl font-bold" style={{ color: "#9ca3af" }}>扫码保存肖像</p>
+          <div className="parchment-card corner-ornament-all flex flex-col items-center gap-3 rounded-xl p-4">
+            <p className="text-xl font-bold" style={{ color: "#5c4033" }}>扫码保存肖像</p>
             <div
               className="flex h-[160px] w-[160px] items-center justify-center rounded-xl p-3"
               style={{ background: "#fff", border: `3px solid ${colors.primary}`, boxShadow: `0 0 30px ${colors.glow}` }}

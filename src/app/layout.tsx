@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { Inspector } from 'react-dev-inspector';
 import './globals.css';
+import MagicalBackground from '@/components/game/MagicalBackground';
 
 export const metadata: Metadata = {
   title: '霍格沃茨分院仪式 | Hogwarts Sorting Ceremony',
@@ -17,9 +18,12 @@ export default function RootLayout({
 
   return (
     <html lang="zh-CN">
-      <body className={`antialiased`}>
+      <body className={`antialiased relative min-h-screen`}>
+        <MagicalBackground />
         {isDev && <Inspector />}
-        {children}
+        <div className="relative z-10">
+          {children}
+        </div>
       </body>
     </html>
   );
