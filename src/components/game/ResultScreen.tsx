@@ -25,6 +25,8 @@ export default function ResultScreen() {
   const [revealCharIndex, setRevealCharIndex] = useState(0);
   const [showTraits, setShowTraits] = useState(false);
   const [showBadge, setShowBadge] = useState(false);
+  const [badgeUrl, setBadgeUrl] = useState<string | null>(null);
+  const [badgeLoading, setBadgeLoading] = useState(false);
   const [showWand, setShowWand] = useState(false);
   const [wandPurchased, setWandPurchased] = useState(false);
 
@@ -174,6 +176,28 @@ export default function ResultScreen() {
       clearTimeout(wandTimer);
     };
   }, [phase]);
+
+  // Fetch AI-generated badge when badge section appears
+  useEffect(() => {
+    if (!showBadge || badgeUrl || badgeLoading || !sortedHouse) return;
+    const fetchBadge = async () => {
+      setBadgeLoading(true);
+      try {
+        const res = await fetch('/api/generate-badge', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ house: sortedHouse.nameEn, bestCategory }),
+        });
+        const data = await res.json();
+        if (data.url) setBadgeUrl(data.url);
+      } catch {
+        // Badge generation failed, will show fallback
+      } finally {
+        setBadgeLoading(false);
+      }
+    };
+    fetchBadge();
+  }, [showBadge, badgeUrl, badgeLoading, sortedHouse, bestCategory]);
 
   const totalScore = (() => {
     if (!level1Result || !level2Result) return 0;
@@ -412,57 +436,50 @@ export default function ResultScreen() {
                     }}
                   >
                     <h3 className="text-lg font-bold mb-3" style={{ color: house.colors.secondary, fontFamily: "'Cinzel', serif" }}>
-                      Your Badge
+                      专属徽章
                     </h3>
 
-                    {/* Badge SVG */}
+                    {/* AI Generated Badge */}
                     <div className="flex justify-center mb-3">
-                      <div className="relative" style={{ width: 160, height: 180 }}>
-                        <svg width="160" height="180" viewBox="0 0 160 180" xmlns="http://www.w3.org/2000/svg">
-                          {/* Shield shape */}
-                          <path
-                            d="M80 5 L155 35 L155 100 Q155 155 80 175 Q5 155 5 100 L5 35 Z"
-                            fill={house.colors.primary}
-                            stroke={house.colors.secondary}
-                            strokeWidth="2.5"
+                      <div
+                        className="relative rounded-xl overflow-hidden"
+                        style={{
+                          width: 256,
+                          height: 256,
+                          background: 'linear-gradient(135deg, #0a0e1a 0%, #1a1025 100%)',
+                          border: `2px solid ${house.colors.secondary}60`,
+                          boxShadow: `0 0 30px ${house.colors.secondary}30, inset 0 0 20px ${house.colors.primary}40`,
+                        }}
+                      >
+                        {badgeLoading && (
+                          <div className="absolute inset-0 flex flex-col items-center justify-center">
+                            <div
+                              className="w-10 h-10 rounded-full border-2 border-t-transparent animate-spin mb-2"
+                              style={{ borderColor: `${house.colors.secondary}60`, borderTopColor: 'transparent' }}
+                            />
+                            <p className="text-xs" style={{ color: house.colors.secondary }}>
+                              徽章锻造中...
+                            </p>
+                          </div>
+                        )}
+                        {badgeUrl && (
+                          <img
+                            src={badgeUrl}
+                            alt="专属徽章"
+                            className="w-full h-full object-contain"
+                            style={{ filter: `drop-shadow(0 0 12px ${house.colors.secondary}40)` }}
                           />
-                          {/* Inner shield */}
-                          <path
-                            d="M80 18 L143 43 L143 97 Q143 143 80 162 Q17 143 17 97 L17 43 Z"
-                            fill={`${house.colors.primary}cc`}
-                            stroke={`${house.colors.secondary}60`}
-                            strokeWidth="1"
-                          />
-                          {/* Banner */}
-                          <path
-                            d="M30 145 L130 145 L125 158 L35 158 Z"
-                            fill={house.colors.secondary}
-                            opacity="0.9"
-                          />
-                          <text
-                            x="80" y="155"
-                            textAnchor="middle"
-                            dominantBaseline="middle"
-                            fontSize="8"
-                            fill={house.colors.primary}
-                            fontWeight="bold"
-                            fontFamily="'Cinzel', serif"
-                          >
-                            {house.nameEn.toUpperCase()}
-                          </text>
-                        </svg>
-                        {/* Category symbol - rendered as HTML on top of SVG */}
-                        <div
-                          className="absolute flex flex-col items-center justify-center"
-                          style={{ top: 30, left: 25, right: 25, height: 100 }}
-                        >
-                          <span style={{ fontSize: 42, filter: `drop-shadow(0 0 8px ${house.colors.secondary})` }}>
-                            {badgeScene.symbol}
-                          </span>
-                          <span style={{ fontSize: 20, marginTop: 4, filter: `drop-shadow(0 0 6px ${house.colors.secondary})` }}>
-                            {house.emoji}
-                          </span>
-                        </div>
+                        )}
+                        {!badgeUrl && !badgeLoading && (
+                          <div className="absolute inset-0 flex flex-col items-center justify-center">
+                            <span style={{ fontSize: 48, filter: `drop-shadow(0 0 12px ${house.colors.secondary})` }}>
+                              {badgeScene.symbol}
+                            </span>
+                            <span style={{ fontSize: 28, marginTop: 4, filter: `drop-shadow(0 0 8px ${house.colors.secondary})` }}>
+                              {house.emoji}
+                            </span>
+                          </div>
+                        )}
                       </div>
                     </div>
 

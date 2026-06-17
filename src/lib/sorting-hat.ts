@@ -9,6 +9,7 @@ export interface House {
   colors: { primary: string; secondary: string };
   traits: string[];
   emoji: string;
+  mascot: string;
 }
 
 export const HOUSES: Record<HouseName, House> = {
@@ -21,6 +22,7 @@ export const HOUSES: Record<HouseName, House> = {
     colors: { primary: '#740001', secondary: '#f59e0b' },
     traits: ['勇气', '胆识', '正义', '无畏'],
     emoji: '🦁',
+    mascot: 'lion',
   },
   slytherin: {
     name: 'slytherin',
@@ -31,6 +33,7 @@ export const HOUSES: Record<HouseName, House> = {
     colors: { primary: '#1a472a', secondary: '#4ade80' },
     traits: ['野心', '狡猾', '决断', '权谋'],
     emoji: '🐍',
+    mascot: 'serpent',
   },
   ravenclaw: {
     name: 'ravenclaw',
@@ -41,6 +44,7 @@ export const HOUSES: Record<HouseName, House> = {
     colors: { primary: '#0e1a40', secondary: '#60a5fa' },
     traits: ['智慧', '学识', '理性', '创造'],
     emoji: '🦅',
+    mascot: 'eagle',
   },
   hufflepuff: {
     name: 'hufflepuff',
@@ -51,6 +55,7 @@ export const HOUSES: Record<HouseName, House> = {
     colors: { primary: '#ecb939', secondary: '#fbbf24' },
     traits: ['忠诚', '勤勉', '正直', '善良'],
     emoji: '🦡',
+    mascot: 'badger',
   },
 };
 
