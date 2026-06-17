@@ -60,7 +60,7 @@ export default function ResultScreen() {
   return (
     <div
       className="relative flex h-screen w-screen flex-col items-center justify-center overflow-hidden"
-      style={{ backgroundImage: "url(/bg-main.png)", backgroundSize: "cover", backgroundPosition: "center" }}
+      style={{ backgroundImage: "url(/bg-reveal.png)", backgroundSize: "cover", backgroundPosition: "center" }}
     >
       {/* 背景星光 */}
       <div className="pointer-events-none absolute inset-0 sparkle-bg" />
