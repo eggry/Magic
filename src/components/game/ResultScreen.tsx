@@ -201,7 +201,7 @@ function ReportStep({
             {/* 总分 */}
             <div className="mt-auto rounded-xl p-4 text-center" style={{ background: `linear-gradient(135deg, ${colors.primary}22, ${colors.secondary}22)`, border: `2px solid ${colors.primary}` }}>
               <p className="text-lg font-bold" style={{ color: "#c9a84c" }}>综合评分</p>
-              <p className="mt-1 text-5xl font-black" style={{ color: colors.primary, textShadow: `0 0 15px ${colors.glow}` }}>
+              <p className="mt-1 text-5xl font-black" style={{ color: "#c9a84c", textShadow: `0 0 15px ${colors.glow}` }}>
                 {total}
               </p>
               <p className="text-base" style={{ color: "#9ca3af" }}>分</p>
@@ -455,7 +455,7 @@ function PortraitStep({
         <h1 className="text-6xl font-black tracking-wider text-glow-gold" style={{ fontFamily: "Cinzel, serif", color: "#c9a84c" }}>
           巫师肖像
         </h1>
-        <p className="mt-2 text-3xl font-bold" style={{ color: colors.primary, textShadow: `0 0 20px ${colors.glow}`, fontFamily: "Noto Serif SC, serif" }}>
+        <p className="mt-2 text-3xl font-bold" style={{ color: "#c9a84c", textShadow: `0 0 20px ${colors.glow}`, fontFamily: "Noto Serif SC, serif" }}>
           {house.nameCn}
         </p>
       </div>

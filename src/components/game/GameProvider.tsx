@@ -23,6 +23,7 @@ export interface Level1Result {
   darkAffinity: number; // 0-100, performance on dark/unforgivable spells
   lightAffinity: number; // 0-100, performance on defense/utility spells
   totalScore: number; // combined score
+  bestSpellCategory: string | null; // category of user's best performing spell
 }
 
 export interface Level2Result {
@@ -86,6 +87,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         lightAffinity: l1.lightAffinity,
         patternScore: result.score,
         patternPrecision: result.precision,
+        bestSpellCategory: l1.bestSpellCategory,
       });
       return { ...prev, level2Result: result, sortedHouse: house, phase: 'photo' };
     });

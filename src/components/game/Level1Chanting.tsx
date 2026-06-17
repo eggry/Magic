@@ -374,6 +374,24 @@ export default function Level1Chanting() {
       ? Math.round(lightSpells.reduce((s, r) => s + (r.accuracy + r.power) / 2, 0) / lightSpells.length)
       : 0;
 
+    // Determine best performing spell category
+    const categoryScores: Record<string, { sum: number; count: number }> = {};
+    spellResults.forEach(r => {
+      const score = (r.accuracy + r.power) / 2;
+      if (!categoryScores[r.category]) categoryScores[r.category] = { sum: 0, count: 0 };
+      categoryScores[r.category].sum += score;
+      categoryScores[r.category].count += 1;
+    });
+    let bestSpellCategory: string | null = null;
+    let bestCatAvg = -1;
+    for (const [cat, { sum, count }] of Object.entries(categoryScores)) {
+      const avg = sum / count;
+      if (avg > bestCatAvg) {
+        bestCatAvg = avg;
+        bestSpellCategory = cat;
+      }
+    }
+
     return {
       spells: spellResults,
       accuracy: avgAccuracy,
@@ -381,6 +399,7 @@ export default function Level1Chanting() {
       darkAffinity,
       lightAffinity,
       totalScore: Math.round(avgAccuracy * 0.5 + avgPower * 0.5),
+      bestSpellCategory,
     };
   }, [allDone, spellResults]);
 

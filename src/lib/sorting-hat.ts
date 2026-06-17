@@ -66,6 +66,7 @@ export interface SortingInput {
   lightAffinity: number;    // 0-100, performance on defense/utility spells
   patternScore: number;     // 0-100
   patternPrecision: number; // 0-100
+  bestSpellCategory?: string | null; // 'combat' | 'dark' | 'utility' | 'defense'
 }
 
 export interface SortingResult extends House {
@@ -83,44 +84,54 @@ export interface SortingResult extends House {
  * - 整体稳定但不突出 → 赫奇帕奇倾向
  */
 export function sortIntoHouse(input: SortingInput): SortingResult {
-  const { chantAccuracy, chantPower, darkAffinity, lightAffinity, patternScore, patternPrecision } = input;
+  const { chantAccuracy, chantPower, darkAffinity, lightAffinity, patternScore, patternPrecision, bestSpellCategory } = input;
+
+  // Category bonus: +12 if user's best spell category matches house specialty
+  const catBonus: Record<string, number> = {
+    combat: 12, dark: 12, utility: 12, defense: 12,
+  };
+  const categoryBonus: Record<HouseName, number> = {
+    gryffindor: bestSpellCategory === 'combat' ? catBonus.combat : 0,
+    slytherin: bestSpellCategory === 'dark' ? catBonus.dark : 0,
+    ravenclaw: bestSpellCategory === 'utility' ? catBonus.utility : 0,
+    hufflepuff: bestSpellCategory === 'defense' ? catBonus.defense : 0,
+  };
 
   // Calculate house scores (0-100 range)
   const scores: Record<HouseName, number> = {
-    // Gryffindor: high power + high light affinity + brave (performs well even on scary spells)
+    // Gryffindor: courage + power + light affinity
     gryffindor: (
-      chantPower * 0.30 +
+      chantPower * 0.35 +
       lightAffinity * 0.25 +
-      Math.max(darkAffinity, 40) * 0.15 + // not scared of dark spells = brave
-      patternScore * 0.15 +
-      patternPrecision * 0.15
-    ),
+      patternScore * 0.20 +
+      patternPrecision * 0.10 +
+      Math.min(darkAffinity, 20) * 0.10
+    ) + categoryBonus.gryffindor,
 
-    // Slytherin: high dark affinity + high accuracy on dark spells + ambition (power)
+    // Slytherin: dark affinity + ambition + accuracy
     slytherin: (
-      darkAffinity * 0.35 +
+      darkAffinity * 0.40 +
       chantPower * 0.20 +
       chantAccuracy * 0.15 +
-      patternScore * 0.15 +
-      patternPrecision * 0.15
-    ),
+      patternPrecision * 0.15 +
+      patternScore * 0.10
+    ) + categoryBonus.slytherin,
 
-    // Ravenclaw: high accuracy + high precision + knowledge (performs well on utility spells)
+    // Ravenclaw: wisdom + knowledge spells + balanced performance
     ravenclaw: (
-      chantAccuracy * 0.30 +
-      patternPrecision * 0.30 +
-      lightAffinity * 0.15 +
-      patternScore * 0.15 +
-      chantPower * 0.10
-    ),
+      chantAccuracy * 0.20 +
+      patternPrecision * 0.20 +
+      lightAffinity * 0.25 +
+      patternScore * 0.20 +
+      chantPower * 0.15
+    ) + categoryBonus.ravenclaw,
 
-    // Hufflepuff: balanced + stable + decent on everything
+    // Hufflepuff: hard work + loyalty + balanced + not extreme
     hufflepuff: (
-      (chantAccuracy + chantPower) * 0.25 +
-      (patternScore + patternPrecision) * 0.25 +
-      Math.min(lightAffinity, 30) * 0.10 +
-      Math.max(0, 50 - Math.abs(darkAffinity - lightAffinity)) * 0.15
-    ),
+      (chantAccuracy + chantPower + patternScore + patternPrecision) / 4 * 0.45 +
+      lightAffinity * 0.25 +
+      patternScore * 0.30
+    ) + categoryBonus.hufflepuff,
   };
 
   // Add small random factor (±5)
