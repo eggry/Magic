@@ -266,11 +266,18 @@ export default function ResultScreen() {
         <div className="flex flex-col items-center gap-4 w-full max-w-lg">
           {/* House name reveal */}
           <h1
-            className="text-5xl sm:text-6xl font-bold tracking-wider"
+            className="text-5xl sm:text-6xl font-black tracking-widest"
             style={{
               fontFamily: "'Cinzel', serif",
-              color: house.colors.secondary,
-              textShadow: `0 0 20px ${house.colors.secondary}, 0 0 40px ${house.colors.secondary}80, 0 0 80px ${house.colors.secondary}40, 0 2px 4px rgba(0,0,0,0.8)`,
+              color: '#ffffff',
+              textShadow: `
+                0 0 10px ${house.colors.secondary},
+                0 0 30px ${house.colors.secondary},
+                0 0 60px ${house.colors.secondary}80,
+                0 0 100px ${house.colors.secondary}40,
+                0 2px 4px rgba(0,0,0,0.9)
+              `,
+              WebkitTextStroke: `1px ${house.colors.secondary}`,
             }}
           >
             {house.nameCn.slice(0, revealCharIndex)}
@@ -410,59 +417,53 @@ export default function ResultScreen() {
 
                     {/* Badge SVG */}
                     <div className="flex justify-center mb-3">
-                      <svg width="160" height="180" viewBox="0 0 160 180" xmlns="http://www.w3.org/2000/svg">
-                        {/* Shield shape */}
-                        <path
-                          d="M80 5 L155 35 L155 100 Q155 155 80 175 Q5 155 5 100 L5 35 Z"
-                          fill={house.colors.primary}
-                          stroke={house.colors.secondary}
-                          strokeWidth="2.5"
-                        />
-                        {/* Inner shield */}
-                        <path
-                          d="M80 18 L143 43 L143 97 Q143 143 80 162 Q17 143 17 97 L17 43 Z"
-                          fill={`${house.colors.primary}cc`}
-                          stroke={`${house.colors.secondary}60`}
-                          strokeWidth="1"
-                        />
-                        {/* Category symbol */}
-                        <text
-                          x="80" y="85"
-                          textAnchor="middle"
-                          dominantBaseline="middle"
-                          fontSize="42"
-                          fill={house.colors.secondary}
+                      <div className="relative" style={{ width: 160, height: 180 }}>
+                        <svg width="160" height="180" viewBox="0 0 160 180" xmlns="http://www.w3.org/2000/svg">
+                          {/* Shield shape */}
+                          <path
+                            d="M80 5 L155 35 L155 100 Q155 155 80 175 Q5 155 5 100 L5 35 Z"
+                            fill={house.colors.primary}
+                            stroke={house.colors.secondary}
+                            strokeWidth="2.5"
+                          />
+                          {/* Inner shield */}
+                          <path
+                            d="M80 18 L143 43 L143 97 Q143 143 80 162 Q17 143 17 97 L17 43 Z"
+                            fill={`${house.colors.primary}cc`}
+                            stroke={`${house.colors.secondary}60`}
+                            strokeWidth="1"
+                          />
+                          {/* Banner */}
+                          <path
+                            d="M30 145 L130 145 L125 158 L35 158 Z"
+                            fill={house.colors.secondary}
+                            opacity="0.9"
+                          />
+                          <text
+                            x="80" y="155"
+                            textAnchor="middle"
+                            dominantBaseline="middle"
+                            fontSize="8"
+                            fill={house.colors.primary}
+                            fontWeight="bold"
+                            fontFamily="'Cinzel', serif"
+                          >
+                            {house.nameEn.toUpperCase()}
+                          </text>
+                        </svg>
+                        {/* Category symbol - rendered as HTML on top of SVG */}
+                        <div
+                          className="absolute flex flex-col items-center justify-center"
+                          style={{ top: 30, left: 25, right: 25, height: 100 }}
                         >
-                          {badgeScene.symbol}
-                        </text>
-                        {/* House emoji */}
-                        <text
-                          x="80" y="130"
-                          textAnchor="middle"
-                          dominantBaseline="middle"
-                          fontSize="20"
-                          fill={house.colors.secondary}
-                        >
-                          {house.emoji}
-                        </text>
-                        {/* Banner */}
-                        <path
-                          d="M30 145 L130 145 L125 158 L35 158 Z"
-                          fill={house.colors.secondary}
-                          opacity="0.9"
-                        />
-                        <text
-                          x="80" y="155"
-                          textAnchor="middle"
-                          dominantBaseline="middle"
-                          fontSize="8"
-                          fill={house.colors.primary}
-                          fontWeight="bold"
-                          fontFamily="'Cinzel', serif"
-                        >
-                          {house.nameEn.toUpperCase()}
-                        </text>
-                      </svg>
+                          <span style={{ fontSize: 42, filter: `drop-shadow(0 0 8px ${house.colors.secondary})` }}>
+                            {badgeScene.symbol}
+                          </span>
+                          <span style={{ fontSize: 20, marginTop: 4, filter: `drop-shadow(0 0 6px ${house.colors.secondary})` }}>
+                            {house.emoji}
+                          </span>
+                        </div>
+                      </div>
                     </div>
 
                     {/* Badge details */}
