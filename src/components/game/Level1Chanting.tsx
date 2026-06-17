@@ -12,6 +12,8 @@ const TIME_PER_SPELL = 10; // 每个咒语限时 10 秒
 export default function Level1Chanting() {
   const { completeLevel1 } = useGame();
   const [spells] = useState<Spell[]>(() => pickThreeSpells());
+
+  // --- State for rendering ---
   const [currentSpellIndex, setCurrentSpellIndex] = useState(0);
   const [phase, setPhase] = useState<Phase>('ready');
   const [transcript, setTranscript] = useState('');
@@ -21,6 +23,13 @@ export default function Level1Chanting() {
   const [spellResults, setSpellResults] = useState<SpellResult[]>([]);
   const [allDone, setAllDone] = useState(false);
 
+  // --- Refs for mutable values accessed inside interval callbacks ---
+  // These MUST be kept in sync with their corresponding state
+  const currentSpellIndexRef = useRef(0);
+  const spellResultsRef = useRef<SpellResult[]>([]);
+  const phaseRef = useRef<Phase>('ready');
+
+  // --- Refs for hardware / browser APIs ---
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -29,10 +38,14 @@ export default function Level1Chanting() {
   const volumeSamplesRef = useRef<number[]>([]);
   const transcriptRef = useRef('');
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const countdownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const micReadyRef = useRef(false);
+  const completeLevel1Ref = useRef(completeLevel1);
+  completeLevel1Ref.current = completeLevel1;
 
   const currentSpell = spells[currentSpellIndex];
 
+  // ---- Cleanup helpers ----
   const stopCurrent = useCallback(() => {
     if (animFrameRef.current) {
       cancelAnimationFrame(animFrameRef.current);
@@ -50,14 +63,20 @@ export default function Level1Chanting() {
 
   const stopAll = useCallback(() => {
     stopCurrent();
+    if (countdownTimerRef.current) {
+      clearInterval(countdownTimerRef.current);
+      countdownTimerRef.current = null;
+    }
     streamRef.current?.getTracks().forEach(t => t.stop());
     streamRef.current = null;
     if (audioContextRef.current?.state !== 'closed') {
       try { audioContextRef.current?.close(); } catch (_e) { /* ignore */ }
       audioContextRef.current = null;
     }
+    analyserRef.current = null;
   }, [stopCurrent]);
 
+  // ---- Volume analysis loop ----
   const analyzeVolume = useCallback(() => {
     if (!analyserRef.current) return;
     const data = new Uint8Array(analyserRef.current.frequencyBinCount);
@@ -76,11 +95,11 @@ export default function Level1Chanting() {
     animFrameRef.current = requestAnimationFrame(analyzeVolume);
   }, []);
 
+  // ---- Calculate a single spell's result ----
   const calculateSpellResult = useCallback((spell: Spell): SpellResult => {
     const samples = volumeSamplesRef.current;
     const transcriptLower = transcriptRef.current.toLowerCase();
 
-    // Accuracy: check if spell name words appear in transcript
     const spellWords = spell.name.toLowerCase().split(' ');
     let matchedWords = 0;
     for (const word of spellWords) {
@@ -90,7 +109,6 @@ export default function Level1Chanting() {
       ? Math.round((matchedWords / spellWords.length) * 70 + 30 * (transcriptLower.length > 0 ? 1 : 0))
       : 50;
 
-    // Power: based on volume
     const avgVolume = samples.length > 0
       ? samples.reduce((a, b) => a + b, 0) / samples.length
       : 0.3;
@@ -100,29 +118,50 @@ export default function Level1Chanting() {
     return { spell, accuracy, power, category: spell.category };
   }, []);
 
+  // ---- Finish current spell (reads from refs — safe inside intervals) ----
   const finishCurrentSpell = useCallback(() => {
-    stopCurrent();
-    const result = calculateSpellResult(currentSpell);
-    const newResults = [...spellResults, result];
+    // Stop listening / timer for current spell
+    if (animFrameRef.current) {
+      cancelAnimationFrame(animFrameRef.current);
+      animFrameRef.current = 0;
+    }
+    if (recognitionRef.current) {
+      try { recognitionRef.current.stop(); } catch (_e) { /* ignore */ }
+      recognitionRef.current = null;
+    }
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+
+    // Read latest values from refs
+    const idx = currentSpellIndexRef.current;
+    const spell = spells[idx];
+    const result = calculateSpellResult(spell);
+    const newResults = [...spellResultsRef.current, result];
+
+    // Sync refs → state
+    spellResultsRef.current = newResults;
     setSpellResults(newResults);
 
-    // Reset for next spell
+    // Reset per-spell state
     setTranscript('');
     transcriptRef.current = '';
     volumeSamplesRef.current = [];
     setVolumeHistory([]);
     setTimeLeft(TIME_PER_SPELL);
 
-    if (currentSpellIndex < spells.length - 1) {
-      // Move to next spell
+    if (idx < spells.length - 1) {
+      phaseRef.current = 'transition';
       setPhase('transition');
     } else {
-      // All done
+      phaseRef.current = 'done';
       setAllDone(true);
       setPhase('done');
     }
-  }, [stopCurrent, calculateSpellResult, currentSpell, spellResults, currentSpellIndex, spells.length]);
+  }, [calculateSpellResult, spells]);
 
+  // ---- Start listening for current spell ----
   const startListeningForSpell = useCallback(() => {
     // Reset per-spell state
     transcriptRef.current = '';
@@ -159,14 +198,15 @@ export default function Level1Chanting() {
       analyzeVolume();
     }
 
+    phaseRef.current = 'listening';
     setPhase('listening');
 
-    // Timer countdown
+    // Timer countdown — finishCurrentSpell reads refs so it's safe
     timerRef.current = setInterval(() => {
       setTimeLeft(prev => {
         if (prev <= 1) {
-          // Time's up - auto finish
-          finishCurrentSpell();
+          // Defer to next tick to avoid calling setState during render
+          setTimeout(() => finishCurrentSpell(), 0);
           return 0;
         }
         return prev - 1;
@@ -174,7 +214,7 @@ export default function Level1Chanting() {
     }, 1000);
   }, [analyzeVolume, finishCurrentSpell]);
 
-  // Initialize microphone once
+  // ---- Initialize microphone once ----
   const initMicrophone = useCallback(async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -196,6 +236,7 @@ export default function Level1Chanting() {
     }
   }, []);
 
+  // ---- Handle start button ----
   const handleStart = useCallback(async () => {
     const micOk = await initMicrophone();
     if (!micOk) {
@@ -205,19 +246,25 @@ export default function Level1Chanting() {
         const power = 50 + Math.floor(Math.random() * 40);
         return { spell, accuracy, power, category: spell.category };
       });
+      spellResultsRef.current = fakeResults;
       setSpellResults(fakeResults);
+      phaseRef.current = 'done';
       setAllDone(true);
       setPhase('done');
       return;
     }
 
     // 3-2-1 countdown
+    phaseRef.current = 'countdown';
     setPhase('countdown');
     setCountdown(3);
-    const countdownTimer = setInterval(() => {
+    countdownTimerRef.current = setInterval(() => {
       setCountdown(prev => {
         if (prev <= 1) {
-          clearInterval(countdownTimer);
+          if (countdownTimerRef.current) {
+            clearInterval(countdownTimerRef.current);
+            countdownTimerRef.current = null;
+          }
           startListeningForSpell();
           return 0;
         }
@@ -226,15 +273,23 @@ export default function Level1Chanting() {
     }, 1000);
   }, [initMicrophone, spells, startListeningForSpell]);
 
+  // ---- Handle next spell button ----
   const handleNextSpell = useCallback(() => {
-    setCurrentSpellIndex(prev => prev + 1);
-    // Small countdown then start
+    const nextIdx = currentSpellIndexRef.current + 1;
+    currentSpellIndexRef.current = nextIdx;
+    setCurrentSpellIndex(nextIdx);
+
+    // Short countdown then start
+    phaseRef.current = 'countdown';
     setPhase('countdown');
     setCountdown(2);
-    const countdownTimer = setInterval(() => {
+    countdownTimerRef.current = setInterval(() => {
       setCountdown(prev => {
         if (prev <= 1) {
-          clearInterval(countdownTimer);
+          if (countdownTimerRef.current) {
+            clearInterval(countdownTimerRef.current);
+            countdownTimerRef.current = null;
+          }
           startListeningForSpell();
           return 0;
         }
@@ -243,14 +298,13 @@ export default function Level1Chanting() {
     }, 1000);
   }, [startListeningForSpell]);
 
-  // Build final Level1Result from all spell results
+  // ---- Build final Level1Result ----
   const finalResult = useMemo<Level1Result | null>(() => {
     if (!allDone || spellResults.length === 0) return null;
 
     const avgAccuracy = Math.round(spellResults.reduce((s, r) => s + r.accuracy, 0) / spellResults.length);
     const avgPower = Math.round(spellResults.reduce((s, r) => s + r.power, 0) / spellResults.length);
 
-    // Calculate dark affinity: how well user performed on dark/unforgivable spells
     const darkSpells = spellResults.filter(r => r.category === 'dark' || r.category === 'unforgivable');
     const lightSpells = spellResults.filter(r => r.category === 'defense' || r.category === 'utility');
     const darkAffinity = darkSpells.length > 0
@@ -270,11 +324,12 @@ export default function Level1Chanting() {
     };
   }, [allDone, spellResults]);
 
+  // ---- Cleanup on unmount ----
   useEffect(() => {
     return () => { stopAll(); };
   }, [stopAll]);
 
-  // Category color mapping
+  // ---- Category styling helpers ----
   const getCategoryColor = (cat: SpellCategory): string => {
     switch (cat) {
       case 'defense': return '#3b82f6';
@@ -453,7 +508,7 @@ export default function Level1Chanting() {
       )}
 
       {/* Transcript */}
-      {(phase === 'listening') && transcript && (
+      {phase === 'listening' && transcript && (
         <p className="mb-4 text-lg" style={{ color: '#e8dcc8' }}>
           你说: &ldquo;{transcript}&rdquo;
         </p>
@@ -600,7 +655,7 @@ export default function Level1Chanting() {
           </div>
 
           <button
-            onClick={() => completeLevel1(finalResult)}
+            onClick={() => completeLevel1Ref.current(finalResult)}
             className="mt-5 px-8 py-3 rounded-lg text-lg font-bold tracking-wider transition-all duration-300 cursor-pointer w-full"
             style={{
               fontFamily: "'Cinzel', serif",

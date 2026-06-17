@@ -22,12 +22,28 @@ export default function Level2Casting() {
   const tracedPointsRef = useRef<{ x: number; y: number }[]>([]);
   const prevBrightRef = useRef<{ x: number; y: number } | null>(null);
   const isDrawingRef = useRef(false);
+  const countdownTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const autoStopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const analyzeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const CANVAS_W = 640;
   const CANVAS_H = 480;
 
   const stopAll = useCallback(() => {
     if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+    animFrameRef.current = 0;
+    if (countdownTimerRef.current) {
+      clearInterval(countdownTimerRef.current);
+      countdownTimerRef.current = null;
+    }
+    if (autoStopTimerRef.current) {
+      clearTimeout(autoStopTimerRef.current);
+      autoStopTimerRef.current = null;
+    }
+    if (analyzeTimerRef.current) {
+      clearTimeout(analyzeTimerRef.current);
+      analyzeTimerRef.current = null;
+    }
     streamRef.current?.getTracks().forEach(t => t.stop());
     streamRef.current = null;
   }, []);
@@ -186,12 +202,12 @@ export default function Level2Casting() {
       processFrame();
 
       // Auto-stop after 15 seconds
-      setTimeout(() => {
+      autoStopTimerRef.current = setTimeout(() => {
         if (isDrawingRef.current) {
           isDrawingRef.current = false;
           stopAll();
           setPhase('analyzing');
-          setTimeout(calculateResultFromTrace, 1500);
+          analyzeTimerRef.current = setTimeout(calculateResultFromTrace, 1500);
         }
       }, 15000);
 
@@ -217,10 +233,13 @@ export default function Level2Casting() {
 
   const handleStart = useCallback(() => {
     setCountdown(3);
-    const timer = setInterval(() => {
+    countdownTimerRef.current = setInterval(() => {
       setCountdown(prev => {
         if (prev <= 1) {
-          clearInterval(timer);
+          if (countdownTimerRef.current) {
+            clearInterval(countdownTimerRef.current);
+            countdownTimerRef.current = null;
+          }
           startCamera();
           return 0;
         }
@@ -457,9 +476,13 @@ export default function Level2Casting() {
         <button
           onClick={() => {
             isDrawingRef.current = false;
+            if (autoStopTimerRef.current) {
+              clearTimeout(autoStopTimerRef.current);
+              autoStopTimerRef.current = null;
+            }
             stopAll();
             setPhase('analyzing');
-            setTimeout(calculateResultFromTrace, 1500);
+            analyzeTimerRef.current = setTimeout(calculateResultFromTrace, 1500);
           }}
           className="px-6 py-2 rounded-lg text-sm cursor-pointer"
           style={{
