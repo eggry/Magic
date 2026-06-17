@@ -66,7 +66,7 @@ export default function PhotoCapture() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        house: sortedHouse?.nameEn ?? "gryffindor",
+        house: sortedHouse?.name ?? "gryffindor",
         photoBase64: base64Data,
       }),
     })

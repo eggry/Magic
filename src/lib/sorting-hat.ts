@@ -116,10 +116,10 @@ export function sortIntoHouse(input: SortingInput): SortingResult {
 
     // Hufflepuff: balanced + stable + decent on everything
     hufflepuff: (
-      (chantAccuracy + chantPower) * 0.20 +
-      (patternScore + patternPrecision) * 0.20 +
-      lightAffinity * 0.15 +
-      (100 - Math.abs(darkAffinity - lightAffinity)) * 0.25 // balanced = hufflepuff
+      (chantAccuracy + chantPower) * 0.25 +
+      (patternScore + patternPrecision) * 0.25 +
+      Math.min(lightAffinity, 30) * 0.10 +
+      Math.max(0, 50 - Math.abs(darkAffinity - lightAffinity)) * 0.15
     ),
   };
 

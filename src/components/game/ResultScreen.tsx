@@ -266,7 +266,7 @@ function BadgeStep({
         </p>
       </div>
 
-      <div className="gilded-border relative flex w-full items-center justify-center gap-16 rounded-2xl p-12" style={{ background: "rgba(15,15,30,0.6)", border: "1px solid rgba(201,168,76,0.3)", boxShadow: `0 0 60px ${colors.glow}` }}>
+      <div className="flex w-full items-center justify-center gap-16">
         {/* 徽章展示 */}
         <div className="flex flex-col items-center gap-6">
           <div
@@ -375,7 +375,7 @@ function WandStep({
         </p>
       </div>
 
-      <div className="gilded-border relative flex w-full items-center justify-center gap-12 rounded-2xl p-10" style={{ background: "rgba(15,15,30,0.6)", border: "1px solid rgba(201,168,76,0.3)", boxShadow: `0 0 60px ${colors.glow}` }}>
+      <div className="flex w-full items-center justify-center gap-12">
         {/* 魔杖展示 */}
         <div className="flex flex-col items-center gap-4">
           <div

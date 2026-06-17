@@ -207,6 +207,7 @@ export default function Level2Casting() {
     if (phase !== 'countdown') return;
     if (countdown <= 0) {
       setPhase('drawing');
+      phaseRef.current = 'drawing';
       setTimeLeft(7);
       pointsRef.current = [];
       lastPointRef.current = null;

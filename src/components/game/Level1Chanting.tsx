@@ -372,7 +372,7 @@ export default function Level1Chanting() {
       : 0;
     const lightAffinity = lightSpells.length > 0
       ? Math.round(lightSpells.reduce((s, r) => s + (r.accuracy + r.power) / 2, 0) / lightSpells.length)
-      : 50;
+      : 0;
 
     return {
       spells: spellResults,
