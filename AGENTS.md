@@ -1,65 +1,72 @@
-# 项目上下文
+# AGENTS.md
 
-### 版本技术栈
+## 项目概览
+
+霍格沃茨分院仪式互动小游戏 - 用户通过念咒语和挥舞魔杖两个关卡，让分院帽决定其所属学院，并最终生成穿着学院服饰的AI肖像。
+
+## 版本技术栈
 
 - **Framework**: Next.js 16 (App Router)
 - **Core**: React 19
 - **Language**: TypeScript 5
 - **UI 组件**: shadcn/ui (基于 Radix UI)
 - **Styling**: Tailwind CSS 4
+- **AI 图像生成**: coze-coding-dev-sdk (ImageGenerationClient)
+- **对象存储**: coze-coding-dev-sdk (S3Storage)
 
 ## 目录结构
 
 ```
-├── public/                 # 静态资源
-├── scripts/                # 构建与启动脚本
-│   ├── build.sh            # 构建脚本
-│   ├── dev.sh              # 开发环境启动脚本
-│   ├── prepare.sh          # 预处理脚本
-│   └── start.sh            # 生产环境启动脚本
 ├── src/
-│   ├── app/                # 页面路由与布局
-│   ├── components/ui/      # Shadcn UI 组件库
-│   ├── hooks/              # 自定义 Hooks
-│   ├── lib/                # 工具库
-│   │   └── utils.ts        # 通用工具函数 (cn)
-│   └── server.ts           # 自定义服务端入口
-├── next.config.ts          # Next.js 配置
-├── package.json            # 项目依赖管理
-└── tsconfig.json           # TypeScript 配置
+│   ├── app/
+│   │   ├── api/
+│   │   │   └── generate-image/
+│   │   │       └── route.ts     # AI 图像生成 API（img2img）
+│   │   ├── globals.css          # 全局样式（哈利波特主题）
+│   │   ├── layout.tsx           # 根布局
+│   │   └── page.tsx             # 主页面（游戏流程控制）
+│   ├── components/
+│   │   ├── game/
+│   │   │   ├── GameProvider.tsx  # 游戏状态管理 Context
+│   │   │   ├── IntroScreen.tsx  # 开场界面
+│   │   │   ├── Level1Chanting.tsx # 关卡1：念咒语
+│   │   │   ├── Level2Casting.tsx # 关卡2：施咒语（魔杖追踪）
+│   │   │   └── ResultScreen.tsx # 分院结果页
+│   │   └── ui/                  # Shadcn UI 组件库
+│   ├── lib/
+│   │   ├── patterns.ts          # 魔法符文图案数据 + 匹配算法
+│   │   ├── sorting-hat.ts       # 分院算法 + 学院数据
+│   │   ├── spells.ts            # 咒语数据
+│   │   └── utils.ts             # 通用工具函数
+│   └── types/
+│       └── speech.d.ts          # Web Speech API 类型声明
 ```
 
-- 项目文件（如 app 目录、pages 目录、components 等）默认初始化到 `src/` 目录下。
+## 构建与测试命令
 
-## 包管理规范
+- 安装依赖: `pnpm install`
+- 类型检查: `pnpm ts-check`
+- Lint: `pnpm lint --quiet`
+- 构建: `pnpm run build`
+- 开发: `pnpm run dev`
 
-**仅允许使用 pnpm** 作为包管理器，**严禁使用 npm 或 yarn**。
-**常用命令**：
-- 安装依赖：`pnpm add <package>`
-- 安装开发依赖：`pnpm add -D <package>`
-- 安装所有依赖：`pnpm install`
-- 移除依赖：`pnpm remove <package>`
+## 游戏流程
 
-## 开发规范
+1. **Intro** → 开场动画，介绍游戏规则
+2. **Level 1** → 念咒语：麦克风录音 + Web Speech API 语音识别 + Web Audio API 音量分析 → 打分
+3. **Level 2** → 施咒语：摄像头魔杖追踪 + Canvas 图案绘制 + 相似度算法 → 打分
+4. **Result** → 分院算法（基于两关分数特征）+ 拍照 + AI img2img 生成学院肖像
 
-### 编码规范
+## 关键技术点
 
-- 默认按 TypeScript `strict` 心智写代码；优先复用当前作用域已声明的变量、函数、类型和导入，禁止引用未声明标识符或拼错变量名。
-- 禁止隐式 `any` 和 `as any`；函数参数、返回值、解构项、事件对象、`catch` 错误在使用前应有明确类型或先完成类型收窄，并清理未使用的变量和导入。
+- **摄像头/麦克风**: 必须在用户交互后请求权限；video 元素始终渲染（CSS 控制显隐）
+- **魔杖追踪**: Canvas 逐帧处理视频，检测最亮点（手机手电筒），记录轨迹点
+- **分院算法**: 基于念咒准确度/气势 + 图案匹配/精度加权计算，附加随机因素
+- **AI 换装**: 用户照片上传至 S3 → 生成签名 URL → img2img 生成学院服饰肖像
 
-### next.config 配置规范
+## 编码规范
 
-- 配置的路径不要写死绝对路径，必须使用 path.resolve(__dirname, ...)、import.meta.dirname 或 process.cwd() 动态拼接。
-
-### Hydration 问题防范
-
-1. 严禁在 JSX 渲染逻辑中直接使用 typeof window、Date.now()、Math.random() 等动态数据。**必须使用 'use client' 并配合 useEffect + useState 确保动态内容仅在客户端挂载后渲染**；同时严禁非法 HTML 嵌套（如 <p> 嵌套 <div>）。
-2. **禁止使用 head 标签**，优先使用 metadata，详见文档：https://nextjs.org/docs/app/api-reference/functions/generate-metadata
-   1. 三方 CSS、字体等资源可在 `globals.css` 中顶部通过 `@import` 引入或使用 next/font
-   2. preload, preconnect, dns-prefetch 通过 ReactDOM 的 preload、preconnect、dns-prefetch 方法引入
-   3. json-ld 可阅读 https://nextjs.org/docs/app/guides/json-ld
-
-## UI 设计与组件规范 (UI & Styling Standards)
-
-- 模板默认预装核心组件库 `shadcn/ui`，位于`src/components/ui/`目录下
-- Next.js 项目**必须默认**采用 shadcn/ui 组件、风格和规范，**除非用户指定用其他的组件和规范。**
+- 所有组件使用 `'use client'` 指令
+- 禁止在 JSX 渲染逻辑中使用 `Math.random()` / `Date.now()` / `typeof window`，使用 `useMemo` + `useState` + `useEffect`
+- 禁止隐式 `any`
+- 包管理器仅使用 `pnpm`
