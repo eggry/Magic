@@ -270,7 +270,7 @@ export default function ResultScreen() {
             style={{
               fontFamily: "'Cinzel', serif",
               color: house.colors.secondary,
-              textShadow: `0 0 30px ${house.colors.secondary}80, 0 0 60px ${house.colors.secondary}40`,
+              textShadow: `0 0 20px ${house.colors.secondary}, 0 0 40px ${house.colors.secondary}80, 0 0 80px ${house.colors.secondary}40, 0 2px 4px rgba(0,0,0,0.8)`,
             }}
           >
             {house.nameCn.slice(0, revealCharIndex)}
@@ -410,7 +410,7 @@ export default function ResultScreen() {
 
                     {/* Badge SVG */}
                     <div className="flex justify-center mb-3">
-                      <svg width="160" height="180" viewBox="0 0 160 180" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <svg width="160" height="180" viewBox="0 0 160 180" xmlns="http://www.w3.org/2000/svg">
                         {/* Shield shape */}
                         <path
                           d="M80 5 L155 35 L155 100 Q155 155 80 175 Q5 155 5 100 L5 35 Z"
@@ -431,6 +431,7 @@ export default function ResultScreen() {
                           textAnchor="middle"
                           dominantBaseline="middle"
                           fontSize="42"
+                          fill={house.colors.secondary}
                         >
                           {badgeScene.symbol}
                         </text>
@@ -440,6 +441,7 @@ export default function ResultScreen() {
                           textAnchor="middle"
                           dominantBaseline="middle"
                           fontSize="20"
+                          fill={house.colors.secondary}
                         >
                           {house.emoji}
                         </text>

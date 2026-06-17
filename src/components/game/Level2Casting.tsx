@@ -260,6 +260,8 @@ export default function Level2Casting() {
       isDrawingRef.current = true;
       setTimeLeft(DRAW_TIME_LIMIT);
       setPhase('drawing');
+      // MUST start the animation loop even without camera!
+      processFrame();
     }
   }, [processFrame]);
 
