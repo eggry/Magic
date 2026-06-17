@@ -158,30 +158,4 @@ export function recommendWand(input: {
 /**
  * 徽章场景数据 — 根据最佳咒语类别生成
  */
-export const BADGE_SCENES: Record<SpellCategory, { scene: string; symbol: string; description: string }> = {
-  defense: {
-    scene: '守护之光',
-    symbol: '🛡️',
-    description: '在暗影中亮起不灭之盾',
-  },
-  utility: {
-    scene: '万象灵光',
-    symbol: '✨',
-    description: '将平凡化为神奇的巧手',
-  },
-  combat: {
-    scene: '雷霆之怒',
-    symbol: '⚡',
-    description: '在战斗中绽放无畏锋芒',
-  },
-  dark: {
-    scene: '暗夜深渊',
-    symbol: '🌑',
-    description: '凝视深渊而深渊回望',
-  },
-  unforgivable: {
-    scene: '禁忌领域',
-    symbol: '💀',
-    description: '踏入凡人不可及的禁忌之地',
-  },
-};
+

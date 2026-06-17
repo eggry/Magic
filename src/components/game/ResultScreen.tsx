@@ -5,7 +5,7 @@ import { useGame } from './GameProvider';
 import { HOUSES, type HouseName, type SortingResult } from '@/lib/sorting-hat';
 import type { SpellCategory } from '@/lib/spells';
 import { SPELLS } from '@/lib/spells';
-import { recommendWand, BADGE_SCENES } from '@/lib/wands';
+import { recommendWand } from '@/lib/wands';
 
 type Phase = 'photo' | 'generating' | 'revealing' | 'done';
 
@@ -186,7 +186,7 @@ export default function ResultScreen() {
         const res = await fetch('/api/generate-badge', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ house: sortedHouse.nameEn, bestCategory }),
+          body: JSON.stringify({ spellName: bestSpellData?.spell.nameCn ?? '荧光闪烁' }),
         });
         const data = await res.json();
         if (data.badgeUrl) setBadgeUrl(data.badgeUrl);
@@ -424,7 +424,7 @@ export default function ResultScreen() {
 
               {/* ===== 专属徽章 ===== */}
               {showBadge && bestSpellData && (() => {
-                const badgeScene = BADGE_SCENES[bestCategory];
+                const bestSpell = bestSpellData.spell;
                 return (
                   <div
                     className="w-full px-5 py-5 rounded-xl mb-2"
@@ -473,7 +473,7 @@ export default function ResultScreen() {
                         {!badgeUrl && !badgeLoading && (
                           <div className="absolute inset-0 flex flex-col items-center justify-center">
                             <span style={{ fontSize: 48, filter: `drop-shadow(0 0 12px ${house.colors.secondary})` }}>
-                              {badgeScene.symbol}
+                              {bestSpell.categoryEmoji}
                             </span>
                             <span style={{ fontSize: 28, marginTop: 4, filter: `drop-shadow(0 0 8px ${house.colors.secondary})` }}>
                               {house.emoji}
@@ -486,10 +486,10 @@ export default function ResultScreen() {
                     {/* Badge details */}
                     <div className="text-center">
                       <p className="text-base font-bold mb-1" style={{ color: house.colors.secondary }}>
-                        {badgeScene.scene}
+                        {bestSpell.nameCn}
                       </p>
                       <p className="text-sm" style={{ color: '#9ca3af' }}>
-                        {badgeScene.description}
+                        {bestSpell.nameEn} · {bestCategory === 'dark' || bestCategory === 'unforgivable' ? '暗黑之力' : bestCategory === 'defense' ? '守护之光' : bestCategory === 'combat' ? '战斗之魂' : '万象灵光'}
                       </p>
                       <div className="mt-2 flex items-center justify-center gap-2 text-xs">
                         <span style={{ color: CATEGORY_COLORS[bestCategory] }}>
